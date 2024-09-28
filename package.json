@@ -1,0 +1,43 @@
+{
+  "name": "framework",
+  "version": "1.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/index  NODE_ENV=staging",
+    "start:dev": "nodemon src/index",
+    "deploy:staging": "sls deploy --aws-profile harulink --stage staging",
+    "deploy:production": "sls deploy --aws-profile harulink --stage production"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.501.0",
+    "cli-progress": "^3.11.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "ethers": "^6.11.1",
+    "express": "^4.18.2",
+    "helmet": "^7.1.0",
+    "helmet-csp": "^3.4.0",
+    "hex2dec": "^1.1.2",
+    "http": "^0.0.1-security",
+    "jsonwebtoken": "^9.0.2",
+    "mariadb": "^3.0.2",
+    "moment": "^2.29.4",
+    "moment-timezone": "^0.5.44",
+    "morgan": "^1.10.0",
+    "mysql2": "^3.7.0",
+    "openai": "^4.24.7",
+    "request": "^2.88.2",
+    "serverless-http": "^3.2.0",
+    "siwe": "^2.1.4",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "prettier": "^3.2.4",
+    "serverless": "^3.38.0",
+    "serverless-dotenv-plugin": "^6.0.0"
+  },
+  "type": "module"
+}

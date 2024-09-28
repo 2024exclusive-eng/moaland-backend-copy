@@ -1,0 +1,33 @@
+service: harulink-backend
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: ${opt:stage, 'staging'}
+  region: ap-northeast-2
+  deploymentBucket: harulink
+
+package:
+  exclude:
+    - .idea/**
+    - .vscode/**
+
+functions:
+  main:
+    handler: src/lambda.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: "{proxy+}"
+          method: any
+          cors: true
+
+plugins:
+  - serverless-dotenv-plugin
+
+custom:
+  dotenv:
+    staging: .env.staging
+    production: .env.production
