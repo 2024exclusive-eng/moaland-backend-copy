@@ -14,8 +14,35 @@ import { SendVerificationCode, VerifyVerificationCode } from '../../utils/mailgu
  */
 export const Login = async (req, res, next) => {
   try {
+    const { type } = req.query;
+    const { email, password } = req.body;
 
-    return res.status(200).json({ success: true });
+    if (type === 'line') {
+      // 라인 로그인 진행
+
+    } else {
+      // 사용자 확인
+      const user = await User.GetUserOneByEmail(email);
+      if (!user || !bcrypt.compareSync(password, user.password))
+        return res.status(200).json({ success: false, error: EC('NOT_MATCH_LOGIN_INFO') });
+
+      delete user.password
+      // 토큰 생성
+      const accessToken = await jwt.sign(
+        {
+          service: "USER",
+          tokenType: "ACCESSTOKEN",
+          id: user.id,
+        }
+      );
+
+      return res.status(200).json({
+        success: true,
+        userInfo: user,
+        accessToken
+      });
+    }
+
   } catch (e) {
     return next(e);
   }

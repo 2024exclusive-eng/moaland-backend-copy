@@ -1,5 +1,19 @@
 import pool from '../utils/pool.js';
 
+// /**
+//  * @function GetUserOneByEmail
+//  * @param {obj}
+//  * @returns {Promise(obj | null)} user
+//  */
+// export const GetUserOneByLogin = async email => {
+//   try {
+//     const [user] = await pool.query(`SELECT id FROM user WHERE email = ?`, [email]);
+//     return user.length ? user[0] : null;
+//   } catch (e) {
+//     throw e;
+//   }
+// };
+
 /**
  * @function GetUserOneByEmail
  * @param {obj}
@@ -7,7 +21,7 @@ import pool from '../utils/pool.js';
  */
 export const GetUserOneByEmail = async email => {
   try {
-    const [user] = await pool.query(`SELECT id FROM user WHERE email = ?`, [email]);
+    const [user] = await pool.query(`SELECT id, email, link, password FROM user WHERE email = ?`, [email]);
     return user.length ? user[0] : null;
   } catch (e) {
     throw e;
