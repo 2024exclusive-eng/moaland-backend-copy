@@ -3,6 +3,8 @@ import * as jwt from '../../utils/jwt.js';
 import * as oauth from '../../utils/oauth.js';
 import { getRandomString } from '../../utils/common.js';
 import EC from '../../utils/error.js';
+import { SendVerificationCode, VerifyVerificationCode } from '../../utils/mailgun.js';
+import * as User from '../../libs/user.js';
 
 /**
  * @function Login
@@ -39,8 +41,13 @@ export const Join = async (req, res, next) => {
  */
 export const VerifyEmail = async (req, res, next) => {
   try {
+    const { email } = req.body;
 
-    return res.status(200).json({ success: true });
+    const existUser = await User.GetUserOneByEmail(email);
+    if (existUser) return res.status(200).json({ success: false, error: EC('DUPLICATED_EMAIL') });
+    const verify = await SendVerificationCode(email);
+
+    return res.status(200).json({ success: true, verify });
   } catch (e) {
     return next(e);
   }
@@ -53,6 +60,10 @@ export const VerifyEmail = async (req, res, next) => {
  */
 export const VerifyEmailCheck = async (req, res, next) => {
   try {
+    const { verify, code, email } = req.body;
+
+    const verified = await VerifyVerificationCode(verify, code, email);
+    if (verified) return res.status(200).json({ success: false, msg: verified });
 
     return res.status(200).json({ success: true });
   } catch (e) {
@@ -81,8 +92,13 @@ export const SetLink = async (req, res, next) => {
  */
 export const VerifyEmailForFindpw = async (req, res, next) => {
   try {
+    const { email } = req.body;
 
-    return res.status(200).json({ success: true });
+    const existUser = await User.GetUserOneByEmail(email);
+    if (!existUser) return res.status(200).json({ success: false, error: EC('NO_USER_BY_EMAIL') });
+    const verify = await SendVerificationCode(email);
+
+    return res.status(200).json({ success: true, verify });
   } catch (e) {
     return next(e);
   }
