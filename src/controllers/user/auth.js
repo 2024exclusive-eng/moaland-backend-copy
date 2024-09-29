@@ -1,10 +1,11 @@
 import pool from '../../utils/pool.js';
 import * as jwt from '../../utils/jwt.js';
 import * as oauth from '../../utils/oauth.js';
-import { getRandomString } from '../../utils/common.js';
-import EC from '../../utils/error.js';
-import { SendVerificationCode, VerifyVerificationCode } from '../../utils/mailgun.js';
 import * as User from '../../libs/user.js';
+import bcrypt from "bcryptjs";
+import EC from '../../utils/error.js';
+import { getRandomString, isEmpty } from '../../utils/common.js';
+import { SendVerificationCode, VerifyVerificationCode } from '../../utils/mailgun.js';
 
 /**
  * @function Login
@@ -63,7 +64,7 @@ export const VerifyEmailCheck = async (req, res, next) => {
     const { verify, code, email } = req.body;
 
     const verified = await VerifyVerificationCode(verify, code, email);
-    if (verified) return res.status(200).json({ success: false, msg: verified });
+    if (verified) return res.status(200).json({ success: false, error: verified });
 
     return res.status(200).json({ success: true });
   } catch (e) {
@@ -111,6 +112,10 @@ export const VerifyEmailForFindpw = async (req, res, next) => {
  */
 export const VerifyEmailCheckForFindpw = async (req, res, next) => {
   try {
+    const { verify, code, email } = req.body;
+
+    const verified = await VerifyVerificationCode(verify, code, email);
+    if (verified) return res.status(200).json({ success: false, error: verified });
 
     return res.status(200).json({ success: true });
   } catch (e) {
@@ -125,6 +130,17 @@ export const VerifyEmailCheckForFindpw = async (req, res, next) => {
  */
 export const FindPw = async (req, res, next) => {
   try {
+    const { verify, code, email, password } = req.body;
+
+    // 비밀번호 입력 확인
+    if (isEmpty(password)) return res.status(200).json({ success: false, error: EC('NEED_PASSWORD') });
+
+    // 메일 인증 확인
+    const verified = await VerifyVerificationCode(verify, code, email);
+    if (verified) return res.status(200).json({ success: false, error: verified });
+
+    // 비밀번호 변경
+    await User.UpdateUserPassword(null, { email, password: bcrypt.hashSync(password, 10) })
 
     return res.status(200).json({ success: true });
   } catch (e) {

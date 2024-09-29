@@ -13,3 +13,18 @@ export const GetUserOneByEmail = async email => {
     throw e;
   }
 };
+
+/**
+ * @function UpdateUserPasswordByEmail
+ * @param {obj}
+ * @returns {Promise(number)}
+ */
+export const UpdateUserPassword = async (txPool, { email, password }) => {
+  try {
+    const conn = txPool ?? pool;
+    const [data] = await conn.query(`UPDATE user SET password = ? WHERE email = ?`, [password, email]);
+    return data.affectedRows;
+  } catch (e) {
+    throw e;
+  }
+};
