@@ -4,7 +4,15 @@ import adminRoute from './admin/index.js';
 import userRoute from './user/index.js';
 
 const route = express.Router();
-
+route.use((req, res, next) => {
+  console.log("==== [REQUEST LOG START] ====");
+  console.log("Decoded:", req.decoded);
+  console.log("Params:", req.params);
+  console.log("Query:", req.query);
+  console.log("Body:", req.body);
+  console.log("==== [REQUEST LOG END] ====");
+  next();
+});
 route.use('/user', userRoute);
 route.use('/admin', adminRoute);
 

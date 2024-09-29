@@ -1,5 +1,6 @@
 import pool from '../../utils/pool.js';
 import EC from '../../utils/error.js';
+import * as Notice from '../../libs/notice.js';
 
 /**
  * @function GetNotice
@@ -8,8 +9,10 @@ import EC from '../../utils/error.js';
  */
 export const GetNotice = async (req, res, next) => {
   try {
+    const { page, item } = req.query;
+    const data = await Notice.GetNotice({ page, item });
 
-    return res.status(200).json({ success: true });
+    return res.status(200).json({ success: true, data });
   } catch (e) {
     return next(e);
   }
