@@ -4,6 +4,6 @@ import * as statistics from '../../controllers/user/statistics.js';
 
 const router = Router();
 
-router.get('/', LoginCheck, statistics.GetStatistics);
+router.get('/', LoginCheck, statistics.GetStatistics); // 사용자 분석 조회
 
 export default router;

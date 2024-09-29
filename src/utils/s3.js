@@ -22,7 +22,7 @@ const CloudFlareClient = new S3Client({
 export const uploadS3 = async (file, folderName = '') => {
   const fileName = uuid.v4();
   const stream = fs.createReadStream(file.path);
-  const fileKey = `${folderName}/${fileName}.${file.mimetype.split('/')[1]}`;
+  const fileKey = `assets/${folderName}/${fileName}.${file.mimetype.split('/')[1]}`;
   const command = new PutObjectCommand({
     Bucket: process.env.AWS_S3_BUCKET,
     Key: `${fileKey}`,
