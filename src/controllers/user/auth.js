@@ -27,6 +27,7 @@ export const Login = async (req, res, next) => {
         return res.status(200).json({ success: false, error: EC('NOT_MATCH_LOGIN_INFO') });
 
       delete user.password
+
       // 토큰 생성
       const accessToken = await jwt.sign(
         {
@@ -42,7 +43,6 @@ export const Login = async (req, res, next) => {
         accessToken
       });
     }
-
   } catch (e) {
     return next(e);
   }
@@ -55,7 +55,39 @@ export const Login = async (req, res, next) => {
  */
 export const Join = async (req, res, next) => {
   try {
+    const { type } = req.query;
+    const { verify, code, email, password } = req.body;
 
+    if (type === 'line') {
+      // 라인 로그인 진행
+
+    } else {
+      // 비밀번호 입력 확인
+      if (isEmpty(password)) return res.status(200).json({ success: false, error: EC('NEED_PASSWORD') });
+
+      // 사용자 확인
+      const verified = await VerifyVerificationCode(verify, code, email);
+      if (verified) return res.status(200).json({ success: false, error: verified });
+
+      // 사용자 생성
+      const newUserId = await User.InsertUserForEmail(null, { email, password: bcrypt.hashSync(password, 10) })
+      const user = await User.GetUserOneByUserId(newUserId);
+
+      // 토큰 생성
+      const accessToken = await jwt.sign(
+        {
+          service: "USER",
+          tokenType: "ACCESSTOKEN",
+          id: user.id,
+        }
+      );
+
+      return res.status(200).json({
+        success: true,
+        userInfo: user,
+        accessToken
+      });
+    }
     return res.status(200).json({ success: true });
   } catch (e) {
     return next(e);
