@@ -5,8 +5,8 @@ import * as uuid from 'uuid';
 const AWSClient = new S3Client({
   region: 'ap-northeast-2',
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_ID,
-    secretAccessKey: process.env.AWS_SECRET_KEY,
+    accessKeyId: process.env.AWS_IAM_ID,
+    secretAccessKey: process.env.AWS_IAM_SECRET_KEY,
   },
 });
 
@@ -23,6 +23,7 @@ export const uploadS3 = async (file, folderName = '') => {
   const fileName = uuid.v4();
   const stream = fs.createReadStream(file.path);
   const fileKey = `assets/${folderName}/${fileName}.${file.mimetype.split('/')[1]}`;
+
   const command = new PutObjectCommand({
     Bucket: process.env.AWS_S3_BUCKET,
     Key: `${fileKey}`,
@@ -32,7 +33,10 @@ export const uploadS3 = async (file, folderName = '') => {
 
   try {
     await AWSClient.send(command);
-    return fileKey;
+    return {
+      key: `${folderName}/${fileName}.${file.mimetype.split('/')[1]}`,
+      uri: `${process.env.AWS_CDN}/${folderName}/${fileName}.${file.mimetype.split('/')[1]}`
+    };
   } catch (err) {
     throw err;
   }

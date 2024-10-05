@@ -11,6 +11,10 @@ const ERROR = {
   DUPLICATED_LINK: { code: 1012, msg: '이미 등록된 링크입니다.' },
   NEED_ACCOUNT: { code: 1013, msg: '계좌번호를 입력해주세요.' },
   NEED_DEPOSITOR: { code: 1014, msg: '예금주를 입력해주세요.' },
+
+  // COMMON 90XX
+  NEED_IMAGE: { code: 9001, msg: '업로드할 이미지가 없습니다.' },
+
 };
 
 export default code => {
