@@ -12,7 +12,6 @@ const ERROR = {
   NEED_ACCOUNT: { code: 1013, msg: '계좌번호를 입력해주세요.' },
   NEED_DEPOSITOR: { code: 1014, msg: '예금주를 입력해주세요.' },
 
-
   // USER PROFILE 20XX
   NEED_TITLE: { code: 2001, msg: '프로필명이 필요합니다.' },
   NEED_PROFILE_IMAGE: { code: 2002, msg: '프로필 이미지가 필요합니다.' },
@@ -24,6 +23,13 @@ const ERROR = {
   NEED_DESIGN_BUTTON_BACKGROUND_COLOR: { code: 2008, msg: '프로필 디자인 버튼 배경 색상이 필요합니다.' },
   NEED_DESIGN_BUTTON_TEXT_COLOR: { code: 2009, msg: '프로필 디자인 버튼 텍스트 색상이 필요합니다.' },
   NEED_DESIGN_BUTTON_TEXT_FONT: { code: 2010, msg: '프로필 디자인 버튼 폰트가 필요합니다.' },
+
+  // USER INQUIRY 30XX
+  NEED_INQUIRY_BLOCK_ID: { code: 3001, msg: 'block id가 필요합니다.' },
+  NEED_INQUIRY_CONTENTS: { code: 3002, msg: '문의내용을 입력해주세요.' },
+  NEED_INQUIRY_NAME: { code: 3003, msg: '이름을 입력해주세요.' },
+  NEED_INQUIRY_LINE_ID: { code: 3004, msg: '라인 ID를 입력해주세요.' },
+  NEED_INQUIRY_TITLE: { code: 3005, msg: 'block title이 필요합니다.' },
 
   // COMMON 90XX
   NEED_IMAGE: { code: 9001, msg: '업로드할 이미지가 없습니다.' },
