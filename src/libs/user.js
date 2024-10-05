@@ -21,7 +21,7 @@ export const GetUserOneByEmail = async email => {
  */
 export const GetUserOneByUserId = async userId => {
   try {
-    const [user] = await pool.query(`SELECT id, email, link FROM user WHERE id = ?`, [userId]);
+    const [user] = await pool.query(`SELECT id, email, link, oauth_type AS oauthType, account, depositor FROM user WHERE id = ?`, [userId]);
     return user.length ? user[0] : null;
   } catch (e) {
     throw e;

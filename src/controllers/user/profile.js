@@ -2,6 +2,8 @@ import pool from '../../utils/pool.js';
 import EC from '../../utils/error.js';
 import { isEmpty } from '../../utils/common.js';
 import * as UserProfile from '../../libs/userProfile.js';
+import * as UserBlock from '../../libs/userBlock.js';
+import * as User from '../../libs/user.js';
 
 /**
  * @function GetProfileForLink
@@ -10,8 +12,15 @@ import * as UserProfile from '../../libs/userProfile.js';
  */
 export const GetProfileForLink = async (req, res, next) => {
   try {
+    const { link } = req.params
 
-    return res.status(200).json({ success: true });
+    const user = await User.GetUserOneByLink(link);
+    const userId = user ? user.id : -1;
+
+    const profile = await UserProfile.GetUserProfile(userId);
+    const block = await UserBlock.GetUserBlock(userId);
+
+    return res.status(200).json({ success: true, profile, block });
   } catch (e) {
     return next(e);
   }
@@ -24,8 +33,13 @@ export const GetProfileForLink = async (req, res, next) => {
  */
 export const GetMyProfile = async (req, res, next) => {
   try {
+    const userId = req.decoded.id;
 
-    return res.status(200).json({ success: true });
+    const profile = await UserProfile.GetUserProfile(userId);
+    const block = await UserBlock.GetUserBlockForMyProfile(userId);
+    const my = await User.GetUserOneByUserId(userId);
+
+    return res.status(200).json({ success: true, profile, block, my });
   } catch (e) {
     return next(e);
   }

@@ -1,5 +1,43 @@
 import pool from '../utils/pool.js';
 
+
+/**
+ * @function GetUserProfile
+ * @param {object} txPool - 트랜잭션 풀
+ * @param {object} params - 함수 파라미터
+ * @param {number} params.userId - 생성된 사용자의 ID
+ * @returns {Promise<number>}
+ */
+export const GetUserProfile = async (userId) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT 
+         name,
+         description,
+         layout,
+         profile_img AS profileImg,
+         profile_background_image AS profileBackgroundImage,
+         background_type AS backgroundType,
+         background_img AS backgroundImg,
+         background_color AS backgroundColor,
+         effect,
+         is_button AS isButton,
+         button_text AS buttonText,
+         button_background_color AS buttonBackgroundColor,
+         button_text_color AS buttonTextColor,
+         button_text_font AS buttonTextFont,
+         button_layout AS buttonLayout
+       FROM user_profile
+       WHERE user_id = ?`,
+      [userId]
+    );
+
+    return rows.length ? rows[0] : null;
+  } catch (e) {
+    throw e;
+  }
+};
+
 /**
  * @function InsertUserProfile
  * @param {object} txPool - 트랜잭션 풀
