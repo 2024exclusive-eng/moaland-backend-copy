@@ -12,6 +12,19 @@ const ERROR = {
   NEED_ACCOUNT: { code: 1013, msg: '계좌번호를 입력해주세요.' },
   NEED_DEPOSITOR: { code: 1014, msg: '예금주를 입력해주세요.' },
 
+
+  // USER PROFILE 20XX
+  NEED_TITLE: { code: 2001, msg: '프로필명이 필요합니다.' },
+  NEED_PROFILE_IMAGE: { code: 2002, msg: '프로필 이미지가 필요합니다.' },
+  NEED_PROFILE_BACKGROUND_IMAGE: { code: 2003, msg: '프로필 배경 이미지가 필요합니다.' },
+  NEED_DESIGN_BACKGROUND_TYPE: { code: 2004, msg: '프로필 디자인 배경 타입이 필요합니다.' },
+  NEED_DESIGN_BACKGROUND_IMAGE: { code: 2005, msg: '프로필 디자인 배경 이미지가 필요합니다.' },
+  NEED_DESIGN_BACKGROUND_COLOR: { code: 2006, msg: '프로필 디자인 배경 색상이 필요합니다.' },
+  NEED_DESIGN_BUTTON_TEXT: { code: 2007, msg: '프로필 디자인 버튼 텍스트가 필요합니다.' },
+  NEED_DESIGN_BUTTON_BACKGROUND_COLOR: { code: 2008, msg: '프로필 디자인 버튼 배경 색상이 필요합니다.' },
+  NEED_DESIGN_BUTTON_TEXT_COLOR: { code: 2009, msg: '프로필 디자인 버튼 텍스트 색상이 필요합니다.' },
+  NEED_DESIGN_BUTTON_TEXT_FONT: { code: 2010, msg: '프로필 디자인 버튼 폰트가 필요합니다.' },
+
   // COMMON 90XX
   NEED_IMAGE: { code: 9001, msg: '업로드할 이미지가 없습니다.' },
 
