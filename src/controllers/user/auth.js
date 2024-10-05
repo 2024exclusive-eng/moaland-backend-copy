@@ -2,6 +2,7 @@ import pool from '../../utils/pool.js';
 import * as jwt from '../../utils/jwt.js';
 import * as oauth from '../../utils/oauth.js';
 import * as User from '../../libs/user.js';
+import * as UserProfile from '../../libs/userProfile.js';
 import bcrypt from "bcryptjs";
 import EC from '../../utils/error.js';
 import { getRandomString, isEmpty } from '../../utils/common.js';
@@ -54,6 +55,7 @@ export const Login = async (req, res, next) => {
  * @returns {obj}
  */
 export const Join = async (req, res, next) => {
+  let conn = null;
   try {
     const { type } = req.query;
     const { verify, code, email, password } = req.body;
@@ -69,28 +71,41 @@ export const Join = async (req, res, next) => {
       const verified = await VerifyVerificationCode(verify, code, email);
       if (verified) return res.status(200).json({ success: false, error: verified });
 
+
+      // 트랜젝션 시작
+      conn = await pool.getConnection();
+      await conn.beginTransaction();
+
       // 사용자 생성
-      const newUserId = await User.InsertUserForEmail(null, { email, password: bcrypt.hashSync(password, 10) })
-      const user = await User.GetUserOneByUserId(newUserId);
+      const newUserId = await User.InsertUserForEmail(conn, { email, password: bcrypt.hashSync(password, 10) })
+
+      // 사용자 프로필 생성
+      await UserProfile.InsertUserProfile(conn, { userId: newUserId });
 
       // 토큰 생성
       const accessToken = await jwt.sign(
         {
           service: "USER",
           tokenType: "ACCESSTOKEN",
-          id: user.id,
+          id: newUserId,
         }
       );
+      await conn.commit();
 
       return res.status(200).json({
         success: true,
-        userInfo: user,
+        userInfo: {
+          id: newUserId, email, link: null
+        },
         accessToken
       });
     }
     return res.status(200).json({ success: true });
   } catch (e) {
+    if (conn) await conn.rollback();
     return next(e);
+  } finally {
+    if (conn) conn.release();
   }
 };
 
