@@ -29,6 +29,20 @@ export const GetUserOneByUserId = async userId => {
 };
 
 /**
+ * @function GetUserOneByLink
+ * @param {obj}
+ * @returns {Promise(obj | null)} user
+ */
+export const GetUserOneByLink = async link => {
+  try {
+    const [user] = await pool.query(`SELECT id, email, link FROM user WHERE link = ?`, [link]);
+    return user.length ? user[0] : null;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
  * @function InsertUserForEmail
  * @param {obj}
  * @returns {Promise(number)}
@@ -51,10 +65,81 @@ export const InsertUserForEmail = async (txPool, { email, password }) => {
  * @param {obj}
  * @returns {Promise(number)}
  */
-export const UpdateUserPassword = async (txPool, { email, password }) => {
+export const UpdateUserPasswordByEmail = async (txPool, { email, password }) => {
   try {
     const conn = txPool ?? pool;
     const [data] = await conn.query(`UPDATE user SET password = ? WHERE email = ?`, [password, email]);
+    return data.affectedRows;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * @function UpdateUserLink
+ * @param {obj}
+ * @returns {Promise(number)}
+ */
+export const UpdateUserLink = async (txPool, { userId, link }) => {
+  try {
+    const conn = txPool ?? pool;
+    const [data] = await conn.query(`UPDATE user SET link = ? WHERE id = ?`, [link, userId]);
+    return data.affectedRows;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * @function UpdateUserAccount
+ * @param {obj}
+ * @returns {Promise(number)}
+ */
+export const UpdateUserAccount = async (txPool, { userId, account, depositor }) => {
+  try {
+    const conn = txPool ?? pool;
+    const [data] = await conn.query(`UPDATE user SET account = ?, depositor = ? WHERE id = ?`, [account, depositor, userId]);
+    return data.affectedRows;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * @function UpdateUserPassword
+ * @param {obj}
+ * @returns {Promise(number)}
+ */
+export const UpdateUserPassword = async (txPool, { userId, password }) => {
+  try {
+    const conn = txPool ?? pool;
+    const [data] = await conn.query(`UPDATE user SET password = ? WHERE id = ?`, [password, userId]);
+    return data.affectedRows;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * @function DeleteUser
+ * @param {object} param
+ * @returns {Promise<number>}
+ */
+export const DeleteUser = async (txPool, { userId }) => {
+  try {
+    const conn = txPool ?? pool;
+
+    const [data] = await conn.query(
+      `UPDATE user
+       SET
+         email = CASE WHEN email IS NOT NULL THEN CONCAT('DELETE_', email) ELSE email END,
+         oauth_id = CASE WHEN oauth_id IS NOT NULL THEN CONCAT('DELETE_', oauth_id) ELSE oauth_id END,
+         link = CASE WHEN link IS NOT NULL THEN CONCAT('DELETE_', link) ELSE link END,
+         is_delete = 'Y'
+       WHERE id = ?`,
+      [userId]
+    );
+
     return data.affectedRows;
   } catch (e) {
     throw e;

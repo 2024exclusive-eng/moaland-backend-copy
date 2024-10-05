@@ -137,11 +137,32 @@ export const VerifyEmailCheck = async (req, res, next) => {
  * @returns {obj}
  */
 export const SetLink = async (req, res, next) => {
+  let conn = null;
   try {
+    const userId = req.decoded.id;
+    const { link } = req.body;
 
+    // 링크 입력 확인
+    if (isEmpty(link)) return res.status(200).json({ success: false, error: EC('NEED_LINK') });
+
+    // 링크 중복 확인
+    const existUser = await User.GetUserOneByLink(link);
+    if (existUser) return res.status(200).json({ success: false, error: EC('DUPLICATED_LINK') });
+
+    // 트랜젝션 시작
+    conn = await pool.getConnection();
+    await conn.beginTransaction();
+
+    await User.UpdateUserLink(conn, { userId, link })
+
+    // 트랜젝션 커밋
+    await conn.commit();
     return res.status(200).json({ success: true });
   } catch (e) {
+    if (conn) await conn.rollback();
     return next(e);
+  } finally {
+    if (conn) conn.release();
   }
 };
 
@@ -199,7 +220,7 @@ export const FindPw = async (req, res, next) => {
     if (verified) return res.status(200).json({ success: false, error: verified });
 
     // 비밀번호 변경
-    await User.UpdateUserPassword(null, { email, password: bcrypt.hashSync(password, 10) })
+    await User.UpdateUserPasswordByEmail(null, { email, password: bcrypt.hashSync(password, 10) })
 
     return res.status(200).json({ success: true });
   } catch (e) {
@@ -214,7 +235,30 @@ export const FindPw = async (req, res, next) => {
  */
 export const ChangeAccount = async (req, res, next) => {
   try {
+    let conn = null;
+    try {
+      const userId = req.decoded.id;
+      const { account, depositor } = req.body;
 
+      // 계좌 & 예금주 입력 확인
+      if (isEmpty(account)) return res.status(200).json({ success: false, error: EC('NEED_ACCOUNT') });
+      if (isEmpty(depositor)) return res.status(200).json({ success: false, error: EC('NEED_DEPOSITOR') });
+
+      // 트랜젝션 시작
+      conn = await pool.getConnection();
+      await conn.beginTransaction();
+
+      await User.UpdateUserAccount(conn, { userId, account, depositor })
+
+      // 트랜젝션 커밋
+      await conn.commit();
+      return res.status(200).json({ success: true });
+    } catch (e) {
+      if (conn) await conn.rollback();
+      return next(e);
+    } finally {
+      if (conn) conn.release();
+    }
     return res.status(200).json({ success: true });
   } catch (e) {
     return next(e);
@@ -227,11 +271,28 @@ export const ChangeAccount = async (req, res, next) => {
  * @returns {obj}
  */
 export const ChangePw = async (req, res, next) => {
+  let conn = null;
   try {
+    const userId = req.decoded.id;
+    const { password } = req.body;
 
+    // 비밀번호 입력 확인
+    if (isEmpty(password)) return res.status(200).json({ success: false, error: EC('NEED_PASSWORD') });
+
+    // 트랜젝션 시작
+    conn = await pool.getConnection();
+    await conn.beginTransaction();
+
+    await User.UpdateUserPassword(conn, { userId, password: bcrypt.hashSync(password, 10) })
+
+    // 트랜젝션 커밋
+    await conn.commit();
     return res.status(200).json({ success: true });
   } catch (e) {
+    if (conn) await conn.rollback();
     return next(e);
+  } finally {
+    if (conn) conn.release();
   }
 };
 
@@ -242,6 +303,9 @@ export const ChangePw = async (req, res, next) => {
  */
 export const Secession = async (req, res, next) => {
   try {
+    const userId = req.decoded.id;
+
+    await User.DeleteUser(null, { userId });
 
     return res.status(200).json({ success: true });
   } catch (e) {
