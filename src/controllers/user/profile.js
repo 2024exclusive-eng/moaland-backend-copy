@@ -232,12 +232,17 @@ export const ModifyMyProfileBlock = async (req, res, next) => {
  */
 export const DeleteMyProfileBlock = async (req, res, next) => {
   try {
+    const userId = req.decoded.id;
+    const { block } = req.params;
+
+    await UserBlock.DeleteUserBlock(null, { userId, blockId: block });
 
     return res.status(200).json({ success: true });
   } catch (e) {
     return next(e);
   }
 };
+
 
 /**
  * 블록 Verify Functions

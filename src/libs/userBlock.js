@@ -108,3 +108,27 @@ export const InsertUserBlock = async (txPool, { userId, isDisplay, blockType, bl
     throw e;
   }
 };
+
+/**
+ * @function DeleteUserBlock
+ * @param {object} txPool - 트랜잭션 풀
+ * @param {object} params - 함수 파라미터
+ * @param {number} params.userId - 사용자 ID
+ * @param {number} params.blockId - 삭제할 블록 ID
+ * @returns {Promise<number>} - 삭제된 행 수 반환
+ */
+export const DeleteUserBlock = async (txPool, { userId, blockId }) => {
+  try {
+    const conn = txPool ?? pool;
+
+    const [data] = await conn.query(
+      `DELETE FROM user_block
+       WHERE id = ? AND user_id = ?`,
+      [blockId, userId]
+    );
+
+    return data.affectedRows;
+  } catch (e) {
+    throw e;
+  }
+};
