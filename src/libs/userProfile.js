@@ -23,10 +23,10 @@ export const GetUserProfile = async (userId) => {
          effect,
          is_button AS isButton,
          button_text AS buttonText,
-         button_background_color AS buttonBackgroundColor,
-         button_text_color AS buttonTextColor,
-         button_text_font AS buttonTextFont,
-         button_layout AS buttonLayout
+         button_url AS buttonUrl,
+         block_background_color AS blockBackgroundColor,
+         block_text_font AS blockTextFont,
+         block_layout AS blockLayout
        FROM user_profile
        WHERE user_id = ?`,
       [userId]
@@ -67,7 +67,7 @@ export const InsertUserProfile = async (txPool, { userId }) => {
  * @param {number} params.userId - 생성된 사용자의 ID
  * @returns {Promise<number>}
  */
-export const UpdateUserProfile = async (txPool, { userId, name, description, layout, profileImg, profileBackgroundImage }) => {
+export const UpdateUserProfile = async (txPool, { userId, name, description, layout, profileImg, profileBackgroundImage, isButton, buttonText, buttonUrl }) => {
   try {
     const conn = txPool ?? pool;
 
@@ -78,7 +78,10 @@ export const UpdateUserProfile = async (txPool, { userId, name, description, lay
          description = ?,
          layout = ?,
          profile_img = CASE WHEN ? IS NOT NULL THEN ? ELSE profile_img END,
-         profile_background_image = CASE WHEN ? IS NOT NULL THEN ? ELSE profile_background_image END
+         profile_background_image = CASE WHEN ? IS NOT NULL THEN ? ELSE profile_background_image END,
+         is_button = ?,
+         button_text = CASE WHEN ? IS NOT NULL THEN ? ELSE button_text END,
+         button_url = CASE WHEN ? IS NOT NULL THEN ? ELSE button_url END
        WHERE user_id = ?`,
       [
         name,
@@ -86,6 +89,9 @@ export const UpdateUserProfile = async (txPool, { userId, name, description, lay
         layout ?? 'LAYOUT_BASIC',
         profileImg, profileImg,
         profileBackgroundImage, profileBackgroundImage,
+        isButton,
+        buttonText, buttonText,
+        buttonUrl, buttonUrl,
         userId
       ]
     );
@@ -108,12 +114,9 @@ export const UpdateUserProfileDesign = async (txPool, {
   backgroundImg,
   backgroundColor,
   effect,
-  isButton,
-  buttonText,
-  buttonBackgroundColor,
-  buttonTextColor,
-  buttonTextFont,
-  buttonLayout
+  blockBackgroundColor,
+  blockTextFont,
+  blockLayout
 }) => {
   try {
     const conn = txPool ?? pool;
@@ -124,24 +127,18 @@ export const UpdateUserProfileDesign = async (txPool, {
          background_img = CASE WHEN ? IS NOT NULL THEN ? ELSE background_img END,
          background_color = CASE WHEN ? IS NOT NULL THEN ? ELSE background_color END,
          effect = ?,
-         is_button = ?,
-         button_text = CASE WHEN ? IS NOT NULL THEN ? ELSE button_text END,
-         button_background_color = CASE WHEN ? IS NOT NULL THEN ? ELSE button_background_color END,
-         button_text_color = CASE WHEN ? IS NOT NULL THEN ? ELSE button_text_color END,
-         button_text_font = CASE WHEN ? IS NOT NULL THEN ? ELSE button_text_font END,
-         button_layout = ?
+         block_background_color = CASE WHEN ? IS NOT NULL THEN ? ELSE block_background_color END,
+         block_text_font = CASE WHEN ? IS NOT NULL THEN ? ELSE block_text_font END,
+         block_layout = ?
        WHERE user_id = ?`,
       [
         backgroundType,
         backgroundImg, backgroundImg,
         backgroundColor, backgroundColor,
         effect,
-        isButton,
-        buttonText, buttonText,
-        buttonBackgroundColor, buttonBackgroundColor,
-        buttonTextColor, buttonTextColor,
-        buttonTextFont, buttonTextFont,
-        buttonLayout,
+        blockBackgroundColor, blockBackgroundColor,
+        blockTextFont, blockTextFont,
+        blockLayout,
         userId
       ]
     );

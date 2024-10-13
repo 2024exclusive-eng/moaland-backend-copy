@@ -10,5 +10,6 @@ router.put('/', LoginCheck, profile.ModifyMyProfile); // 프로필 수정
 router.put('/design', LoginCheck, profile.ModifyMyProfileDesign); // 프로필 디자인 수정
 router.put('/block', LoginCheck, profile.ModifyMyProfileBlock); // 프로필 블럭 수정
 router.delete('/block/:block', LoginCheck, profile.DeleteMyProfileBlock); // 프로필 블럭 삭제
+router.get('/block/:block', () => { }); // 프로필 블럭 클릭(statistics)
 
 export default router;

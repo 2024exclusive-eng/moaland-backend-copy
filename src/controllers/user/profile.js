@@ -53,7 +53,15 @@ export const GetMyProfile = async (req, res, next) => {
 export const ModifyMyProfile = async (req, res, next) => {
   try {
     const userId = req.decoded.id;
-    const { name, description, layout, profileImg, profileBackgroundImage } = req.body;
+    const { name,
+      description,
+      layout,
+      profileImg,
+      profileBackgroundImage,
+      isButton,
+      buttonText,
+      buttonUrl
+    } = req.body;
 
     // 유효성 검사
     if (isEmpty(name)) return res.status(200).json({ success: false, error: EC('NEED_TITLE') });
@@ -66,6 +74,11 @@ export const ModifyMyProfile = async (req, res, next) => {
       if (isEmpty(profileBackgroundImage)) return res.status(200).json({ success: false, error: EC('NEED_PROFILE_BACKGROUND_IMAGE') });
     }
 
+    if (isButton === 'Y') {
+      if (isEmpty(buttonText)) return res.status(200).json({ success: false, error: EC('NEED_PROFILE_BUTTON_TEXT') });
+      if (isEmpty(buttonUrl)) return res.status(200).json({ success: false, error: EC('NEED_PROFILE_BUTTON_URL') });
+    }
+
     // 프로필 업데이트
     await UserProfile.UpdateUserProfile(null, {
       userId,
@@ -74,6 +87,9 @@ export const ModifyMyProfile = async (req, res, next) => {
       layout: isEmpty(layout) ? 'COLOLAYOUT_BASICR' : layout,
       profileImg: profileImg ? profileImg : null,
       profileBackgroundImage: profileBackgroundImage ? profileBackgroundImage : null,
+      isButton: isButton ?? "N",
+      buttonText: buttonText ?? null,
+      buttonUrl: buttonUrl ?? null,
     })
 
     return res.status(200).json({ success: true });
@@ -95,12 +111,9 @@ export const ModifyMyProfileDesign = async (req, res, next) => {
       backgroundImg,
       backgroundColor,
       effect,
-      isButton,
-      buttonText,
-      buttonBackgroundColor,
-      buttonTextColor,
-      buttonTextFont,
-      buttonLayout
+      blockBackgroundColor,
+      blockTextFont,
+      blockLayout
     } = req.body;
 
     // 유효성 검사
@@ -114,12 +127,8 @@ export const ModifyMyProfileDesign = async (req, res, next) => {
       return res.status(200).json({ success: false, error: EC('NEED_DESIGN_BACKGROUND_COLOR') });
     }
 
-    if (isButton === 'Y') {
-      if (isEmpty(buttonText)) return res.status(200).json({ success: false, error: EC('NEED_DESIGN_BUTTON_TEXT') });
-      if (isEmpty(buttonBackgroundColor)) return res.status(200).json({ success: false, error: EC('NEED_DESIGN_BUTTON_BACKGROUND_COLOR') });
-      if (isEmpty(buttonTextColor)) return res.status(200).json({ success: false, error: EC('NEED_DESIGN_BUTTON_TEXT_COLOR') });
-      if (isEmpty(buttonTextFont)) return res.status(200).json({ success: false, error: EC('NEED_DESIGN_BUTTON_TEXT_FONT') });
-    }
+    if (isEmpty(blockBackgroundColor)) return res.status(200).json({ success: false, error: EC('NEED_DESIGN_BLOCK_BACKGROUND_COLOR') });
+    if (isEmpty(blockTextFont)) return res.status(200).json({ success: false, error: EC('NEED_DESIGN_BLOCK_TEXT_FONT') });
 
     // 프로필 디자인 업데이트
     await UserProfile.UpdateUserProfileDesign(null, {
@@ -128,12 +137,9 @@ export const ModifyMyProfileDesign = async (req, res, next) => {
       backgroundImg: backgroundImg ?? null,
       backgroundColor: backgroundColor ?? null,
       effect: effect ?? null,
-      isButton: isButton ?? 'Y',
-      buttonText: buttonText ?? null,
-      buttonBackgroundColor: buttonBackgroundColor ?? null,
-      buttonTextColor: buttonTextColor ?? null,
-      buttonTextFont: buttonTextFont ?? null,
-      buttonLayout: isEmpty(buttonLayout) ? 'LAYOUT_CIRCLE' : buttonLayout
+      blockBackgroundColor: blockBackgroundColor ?? null,
+      blockTextFont: blockTextFont ?? null,
+      blockLayout: isEmpty(blockLayout) ? 'LAYOUT_CIRCLE' : blockLayout
     });
 
     return res.status(200).json({ success: true });

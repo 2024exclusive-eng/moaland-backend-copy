@@ -19,10 +19,11 @@ const ERROR = {
   NEED_DESIGN_BACKGROUND_TYPE: { code: 2004, msg: '프로필 디자인 배경 타입이 필요합니다.' },
   NEED_DESIGN_BACKGROUND_IMAGE: { code: 2005, msg: '프로필 디자인 배경 이미지가 필요합니다.' },
   NEED_DESIGN_BACKGROUND_COLOR: { code: 2006, msg: '프로필 디자인 배경 색상이 필요합니다.' },
-  NEED_DESIGN_BUTTON_TEXT: { code: 2007, msg: '프로필 디자인 버튼 텍스트가 필요합니다.' },
-  NEED_DESIGN_BUTTON_BACKGROUND_COLOR: { code: 2008, msg: '프로필 디자인 버튼 배경 색상이 필요합니다.' },
-  NEED_DESIGN_BUTTON_TEXT_COLOR: { code: 2009, msg: '프로필 디자인 버튼 텍스트 색상이 필요합니다.' },
-  NEED_DESIGN_BUTTON_TEXT_FONT: { code: 2010, msg: '프로필 디자인 버튼 폰트가 필요합니다.' },
+  NEED_DESIGN_BLOCK_BACKGROUND_COLOR: { code: 2008, msg: '프로필 디자인 버튼 배경 색상이 필요합니다.' },
+  NEED_DESIGN_BLOCK_TEXT_FONT: { code: 2010, msg: '프로필 디자인 버튼 폰트가 필요합니다.' },
+
+  NEED_PROFILE_BUTTON_TEXT: { code: 2011, msg: '프로필 버튼 텍스트가 필요합니다.' },
+  NEED_PROFILE_BUTTON_URL: { code: 2012, msg: '프로필 버튼 링크가 필요합니다.' },
 
   // USER INQUIRY 30XX
   NEED_INQUIRY_BLOCK_ID: { code: 3001, msg: 'block id가 필요합니다.' },
