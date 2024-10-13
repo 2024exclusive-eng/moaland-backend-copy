@@ -3,7 +3,10 @@ import EC from '../../utils/error.js';
 import { isEmpty } from '../../utils/common.js';
 import * as UserProfile from '../../libs/userProfile.js';
 import * as UserBlock from '../../libs/userBlock.js';
+import * as UserStatistics from '../../libs/userStatistics.js';
+import * as UserBlockClock from '../../libs/userBlockClick.js';
 import * as User from '../../libs/user.js';
+import moment from 'moment';
 
 /**
  * @function GetProfileForLink
@@ -20,7 +23,27 @@ export const GetProfileForLink = async (req, res, next) => {
     const profile = await UserProfile.GetUserProfile(userId);
     const block = await UserBlock.GetUserBlock(userId);
 
+    if (userId != -1)
+      await UserStatistics.UpdateUserStatisticsViews(null, { userId, today: moment().format('YYYY-MM-DD') })
+
     return res.status(200).json({ success: true, profile, block });
+  } catch (e) {
+    return next(e);
+  }
+};
+
+/**
+ * @function ClickProfileBlock
+ * @description 프로필 블럭 클릭
+ * @returns {obj}
+ */
+export const ClickProfileBlock = async (req, res, next) => {
+  try {
+    const { block } = req.params;
+
+    await UserBlockClock.UpdateUserBlockClick(null, { blockId: block, today: moment().format('YYYY-MM-DD') });
+
+    return res.status(200).json({ success: true });
   } catch (e) {
     return next(e);
   }
