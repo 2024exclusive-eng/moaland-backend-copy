@@ -2,6 +2,7 @@ import pool from '../../utils/pool.js';
 import EC from '../../utils/error.js';
 import * as Mission from '../../libs/mission.js';
 import * as MissionEnroll from '../../libs/missionEnroll.js';
+import { isEmpty } from '../../utils/common.js';
 
 /**
  * @function GetMissionList
@@ -65,6 +66,12 @@ export const EnrollMission = async (req, res, next) => {
   try {
     const { missionId } = req.params;
     const userId = req.decoded.id;
+    const { name, social, address } = req.body;
+
+    // 유효성 검사
+    if (isEmpty(name)) return res.status(200).json({ success: false, error: EC('MISSION_NEED_NAME') });
+    if (isEmpty(social)) return res.status(200).json({ success: false, error: EC('MISSION_NEED_SOCIAL') });
+    if (isEmpty(address)) return res.status(200).json({ success: false, error: EC('MISSION_NEED_ADDRESS') });
 
     // 미션 정보 확인 (신청자 수, 시작/종료 날짜 등)
     const missionDetail = await Mission.GetMissionByMissionId(missionId);

@@ -40,25 +40,24 @@ export const GetMissionEnrollCount = async (missionId) => {
   }
 };
 
-/**
- * @function GetMissionListByUserId
- * @param {obj}
- * @returns {Promise([obj] | null)} 
- */
 export const GetMissionListByUserId = async ({ page, item, type, userId }) => {
   try {
     const itemsPerPage = Number(item ? item : 30);
     const currentPage = page ? parseInt(page) : 1;
     const offset = (currentPage - 1) * itemsPerPage;
 
-    type === "" ? type = "enroll" : type;
+    // 기본 type이 비어 있으면 "enroll"로 설정
+    type = type === "" ? "enroll" : type;
+
+    // type이 complete인 경우 point 타입도 함께 조회하기 위해 OR 조건 추가
+    const statusCondition = type === "complete" ? `(mission_enroll.status = 'complete' OR mission_enroll.status = 'point')` : `mission_enroll.status = ?`;
 
     const [totalResult] = await pool.query(
       `SELECT COUNT(*) AS totalCount
        FROM mission_enroll 
        WHERE mission_enroll.user_id = ? 
-       AND mission_enroll.status = ?`,
-      [userId, type]
+       AND ${statusCondition}`,
+      type === "complete" ? [userId] : [userId, type]
     );
 
     const totalItems = totalResult[0].totalCount;
@@ -89,10 +88,10 @@ export const GetMissionListByUserId = async ({ page, item, type, userId }) => {
        FROM mission_enroll 
        INNER JOIN mission ON mission_enroll.mission_id = mission.id
        WHERE mission_enroll.user_id = ? 
-       AND mission_enroll.status = ?
+       AND ${statusCondition}
        ORDER BY mission_enroll.created DESC
        LIMIT ? OFFSET ?`,
-      [userId, type, itemsPerPage, offset]
+      type === "complete" ? [userId, itemsPerPage, offset] : [userId, type, itemsPerPage, offset]
     );
 
     return {

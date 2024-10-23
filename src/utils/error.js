@@ -72,6 +72,9 @@ const ERROR = {
   MISSION_MAX_ENROLL_REACHED: { code: 5002, msg: '미션 신청자가 초과되었습니다.' },
   MISSION_ALREADY_STARTED: { code: 5003, msg: '시작하지 않은 미션입니다.' },
   MISSION_ALREADY_ENDED: { code: 5004, msg: '종료된 미션입니다.' },
+  MISSION_NEED_NAME: { code: 5005, msg: '이름을 입력해주세요.' },
+  MISSION_NEED_SOCIAL: { code: 5006, msg: '소셜정보를 입력해주세요.' },
+  MISSION_NEED_ADDRESS: { code: 5007, msg: '주소를 입력해주세요.' },
 
   // COMMON 90XX
   NEED_IMAGE: { code: 9001, msg: '업로드할 이미지가 없습니다.' },
