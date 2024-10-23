@@ -67,6 +67,11 @@ const ERROR = {
   NEED_BLOCK_INQUIRY_FORM: { code: 4082, msg: '문의 블록의 문의 양식이 필요합니다.' },
   NEED_BLOCK_INQUIRY_TITLE: { code: 4083, msg: '문의 블록의 제목이 필요합니다.' },
 
+  // MISSION 50XX
+  MISSION_ALREADY_ENROLLED: { code: 5001, msg: '이미 신청한 미션입니다.' },
+  MISSION_MAX_ENROLL_REACHED: { code: 5002, msg: '미션 신청자가 초과되었습니다.' },
+  MISSION_ALREADY_STARTED: { code: 5003, msg: '시작하지 않은 미션입니다.' },
+  MISSION_ALREADY_ENDED: { code: 5004, msg: '종료된 미션입니다.' },
 
   // COMMON 90XX
   NEED_IMAGE: { code: 9001, msg: '업로드할 이미지가 없습니다.' },
