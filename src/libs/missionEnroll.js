@@ -84,7 +84,10 @@ export const GetMissionListByUserId = async ({ page, item, type, userId }) => {
               mission_enroll.status AS status,
               mission_enroll.link AS link,
               mission_enroll.link_updated AS linkUpdated,
-              mission_enroll.created AS created
+              mission_enroll.created AS created,
+              (SELECT COUNT(*) 
+               FROM mission_enroll AS me 
+               WHERE me.mission_id = mission.id) AS enrollCount
        FROM mission_enroll 
        INNER JOIN mission ON mission_enroll.mission_id = mission.id
        WHERE mission_enroll.user_id = ? 
@@ -113,11 +116,11 @@ export const GetMissionListByUserId = async ({ page, item, type, userId }) => {
  * @param {obj}
  * @returns {Promise([obj] | null)} 
  */
-export const InsertMissionEnroll = async (missionId, userId) => {
+export const InsertMissionEnroll = async (missionId, userId, name, social, address) => {
   try {
     const [data] = await pool.query(
-      `INSERT INTO mission_enroll (mission_id, user_id) VALUES (?, ?)`,
-      [missionId, userId]
+      `INSERT INTO mission_enroll (mission_id, user_id, name, social, address) VALUES (?, ?, ?, ?, ?)`,
+      [missionId, userId, name, social, address]
     );
 
     return data.insertId;
@@ -157,6 +160,46 @@ export const UpdateMissionContent = async ({ missionId, userId, link }) => {
        SET link = ?, link_updated = NOW()
        WHERE mission_id = ? AND user_id = ? AND status = 'select'`,
       [link, missionId, userId]
+    );
+    return result;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * @function GetUsersByMissionId
+ * @param {number} missionId
+ * @returns {Promise([obj] | null)} 
+ */
+export const GetUsersByMissionId = async (missionId) => {
+  try {
+    const [result] = await pool.query(
+      `SELECT mission_enroll.id AS missionEnrollId, user_id AS userId, name, social, address, status, link, link_updated AS linkUpdated, created
+       FROM mission_enroll
+       WHERE mission_id = ?`,
+      [missionId]
+    );
+
+    return result;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * @function UpdateMissionEnrollStatus
+ * @param {number} enrollId
+ * @param {string} type
+ * @returns {Promise([obj] | null)} 
+ */
+export const UpdateMissionEnrollStatus = async (enrollId, type) => {
+  try {
+    const result = await pool.query(
+      `UPDATE mission_enroll 
+       SET status = ? 
+       WHERE id = ?`,
+      [type, enrollId]
     );
     return result;
   } catch (e) {

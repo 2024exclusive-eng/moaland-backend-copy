@@ -27,7 +27,7 @@ export const GetMissionList = async (req, res, next) => {
  */
 export const GetMissionDetail = async (req, res, next) => {
   try {
-    const userId = req.decoded.id ? req.decoded.id : -1;
+    const userId = req.decoded?.id ? req.decoded.id : -1;
     const { missionId } = req.params;
 
     const mission = await Mission.GetMissionByMissionId(missionId);
@@ -95,7 +95,7 @@ export const EnrollMission = async (req, res, next) => {
       return res.status(200).json({ success: false, error: EC('MISSION_ALREADY_ENDED') });
 
     // 미션 신청 등록 (mission_enroll 테이블에 row 생성)
-    await MissionEnroll.InsertMissionEnroll(missionId, userId);
+    await MissionEnroll.InsertMissionEnroll(missionId, userId, name, social, address);
 
     return res.status(200).json({ success: true });
   } catch (e) {

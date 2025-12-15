@@ -1,17 +1,27 @@
-import * as FormData from 'form-data';
 import * as crypto from "crypto";
-import axios from 'axios';
 import EC from './error.js';
+import FormData from 'form-data';
+import axios from 'axios';
 
 const API_KEY = process.env.MAILGUN_API_KEY;
 const DOMAIN = process.env.MAILGUN_DOMAIN;
 
-const sendSimpleMail = async (email, subject, text) => {
+export const sendSimpleMail = async (email, text) => {
   const formData = new FormData();
   formData.append('from', process.env.MAILGUN_SEND_EMAIL);
   formData.append('to', email);
-  formData.append('subject', subject);
-  formData.append('text', text);
+  formData.append('subject', '[Harulink] Your Verification Code from Harulink');
+  formData.append('text', `Hello,
+
+  Thank you for using Harulink. Your verification code is: ${text}
+  
+  Please enter this code on the verification page to continue. This code will expire in 10 minutes.
+  
+  If you did not request this code, please ignore this email or contact support if you have any questions.
+  
+  Best regards,
+  The Harulink Team
+  `);
 
   try {
     const response = await axios({
@@ -25,12 +35,12 @@ const sendSimpleMail = async (email, subject, text) => {
     });
 
     if (response.status === 200) {
-      return true;
+      console.log('메일 전송 완료');
     } else {
-      throw ("메일전송 실패")
+      console.log('메일 전송 실패:', response.data);
     }
   } catch (error) {
-    throw (error)
+    console.error('메일 전송 중 오류 발생:', error);
   }
 };
 
@@ -40,7 +50,7 @@ export const SendVerificationCode = async (email) => {
   const rawVerificationCode = "000000";
   const rawHash = `${email}-${rawVerificationCode}${process.env.CRYPTO_KEY}:${sendTime}`;
 
-  // await sendSimpleMail(email, "메일 제목", rawVerificationCode);
+  await sendSimpleMail(email, rawVerificationCode);
 
   const hash = crypto.createHash("sha256").update(rawHash).digest("hex");
   return `${hash}:${sendTime}`;

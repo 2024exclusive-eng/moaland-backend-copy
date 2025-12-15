@@ -76,8 +76,14 @@ const ERROR = {
   MISSION_NEED_SOCIAL: { code: 5006, msg: '소셜정보를 입력해주세요.' },
   MISSION_NEED_ADDRESS: { code: 5007, msg: '주소를 입력해주세요.' },
 
+  // POINT 60XX
+  NOT_ENOUGH_BALANCE: { code: 6001, msg: '포인트가 충분하지 않습니다.' },
+
   // COMMON 90XX
   NEED_IMAGE: { code: 9001, msg: '업로드할 이미지가 없습니다.' },
+
+  // ADMIN AUTH 100XX
+  ADMIN_AUTH_NOT_MATCH_INFO: { code: 10001, msg: '아이디나 비밀번호가 일치하지 않습니다.' },
 
 };
 

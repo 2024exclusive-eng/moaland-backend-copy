@@ -14,6 +14,86 @@ export const GetUserOneByEmail = async email => {
   }
 };
 
+
+/**
+ * @function GetUserOneByOauthId
+ * @param {obj}
+ * @returns {Promise(obj | null)} user
+ */
+export const GetUserOneByOauthId = async (type, oauthId) => {
+  try {
+    const [user] = await pool.query(`SELECT id, email, link, oauth_type AS oauthType, account, depositor FROM user WHERE oauth_type = ? AND oauth_id = ?`, [type, oauthId]);
+    return user.length ? user[0] : null;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * @function GetUserList
+ * @param {obj}
+ * @returns {Promise(obj | null)} user
+ */
+export const GetUserList = async (paging, search) => {
+  try {
+    const itemsPerPage = Number(paging?.item ? paging.item : 30);
+    const currentPage = paging?.page ? parseInt(paging.page) : 1;
+    const offset = (currentPage - 1) * itemsPerPage;
+
+    let query = `SELECT id, email, link, oauth_type AS oauthType, account, depositor FROM user`;
+    let countQuery = `SELECT count(id) AS total FROM user`;
+    let queryParams = [];
+    let countParams = [];
+
+    if (search) {
+      query += ` WHERE email LIKE ? OR link LIKE ?`;
+      countQuery += ` WHERE email LIKE ? OR link LIKE ?`;
+      queryParams.push(`%${search}%`, `%${search}%`);
+      countParams.push(`%${search}%`, `%${search}%`);
+    }
+
+    query += ` ORDER BY id DESC LIMIT ? OFFSET ?`;
+    queryParams.push(itemsPerPage, offset);
+    
+    const [totalResult] = await pool.query(countQuery, countParams);
+    const totalItems = totalResult[0].total;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+    const [data] = await pool.query(query, queryParams);
+    
+    return {
+      data,
+      paging: {
+        currentPage,
+        totalPages,
+        totalItems,
+        itemsPerPage,
+      },
+    };
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * @function GetUserOneById
+ * @param {number} userId
+ * @returns {Promise(obj | null)} user
+ */
+export const GetUserOneById = async id => {
+  try {
+    const [user] = await pool.query(
+      `SELECT id, email, link, oauth_type AS oauthType, account, depositor, password, created, updated
+       FROM user
+       WHERE id = ?`,
+      [id]
+    );
+    return user.length ? user[0] : null;
+  } catch (e) {
+    throw e;
+  }
+};
+
 /**
  * @function GetUserOneByUserId
  * @param {obj}
@@ -59,6 +139,26 @@ export const InsertUserForEmail = async (txPool, { email, password }) => {
     throw e;
   }
 };
+
+
+/**
+ * @function InsertUserForOauth
+ * @param {obj}
+ * @returns {Promise(number)}
+ */
+export const InsertUserForOauth = async (txPool, { oauthId, oauthType }) => {
+  try {
+    const conn = txPool ?? pool;
+
+    const [data] = await conn.query(
+      `INSERT INTO user (oauth_id, oauth_type) VALUE (?, ?)`, [oauthId, oauthType]
+    );
+    return data.insertId;
+  } catch (e) {
+    throw e;
+  }
+};
+
 
 /**
  * @function UpdateUserPasswordByEmail

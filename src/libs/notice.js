@@ -34,3 +34,63 @@ export const GetNotice = async paging => {
     throw e;
   }
 };
+
+/**
+ * @function GetNoticeById
+ * @param {number} id
+ * @returns {Promise(obj | null)}
+ */
+export const GetNoticeById = async id => {
+  try {
+    const [data] = await pool.query(`SELECT id, title, contents, created FROM notice WHERE id = ?`, [id]);
+   
+    return data.length ? data[0] : null;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * @function ModifyNotice
+ * @param {obj}
+ * @returns {Promise([obj] | null)}
+ */
+export const ModifyNotice = async (id, title, contents) => {
+  try {
+    const data = await pool.query(`UPDATE notice SET title = ?, contents = ? WHERE id = ?`, [title, contents, id]);
+
+    return data.affectedRows;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * @function InsertNotice
+ * @param {obj}
+ * @returns {Promise([obj] | null)}
+ */
+export const InsertNotice = async (title, contents) => {
+  try {
+    const data = await pool.query(`INSERT INTO notice (title, contents) VALUES (?, ?)`, [title, contents]);
+
+    return data.insertId;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * @function DeleteNotice
+ * @param {number} id
+ * @returns {Promise(number | null)}
+ */
+export const DeleteNotice = async id => {
+  try {
+    const data = await pool.query(`DELETE FROM notice WHERE id = ?`, [id]);
+
+    return data.affectedRows;
+  } catch (e) {
+    throw e;
+  }
+};

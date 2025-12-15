@@ -7,6 +7,10 @@ import bcrypt from "bcryptjs";
 import EC from '../../utils/error.js';
 import { getRandomString, isEmpty } from '../../utils/common.js';
 import { SendVerificationCode, VerifyVerificationCode } from '../../utils/mailgun.js';
+import axios from 'axios';
+
+const LINE_CLIENT_ID = "2006628274";
+const LINE_CLIENT_SECRET = "b487c9e56b9aa886bfb27bab77bca4bf";
 
 /**
  * @function Login
@@ -14,13 +18,68 @@ import { SendVerificationCode, VerifyVerificationCode } from '../../utils/mailgu
  * @returns {obj}
  */
 export const Login = async (req, res, next) => {
+  let conn = null;
   try {
-    const { type } = req.query;
-    const { email, password } = req.body;
+    // const { type } = req.query;
+    const { email, password, lineAccessToken, type } = req.body;
 
     if (type === 'line') {
       // 라인 로그인 진행
+      const profileResponse = await axios.get('https://api.line.me/v2/profile', {
+        headers: {
+          Authorization: `Bearer ${lineAccessToken}`,
+        },
+      });
+      console.log(profileResponse);
+      const { userId } = profileResponse.data;
+      const user = await User.GetUserOneByOauthId('LINE', userId);
 
+      if (!user) {
+        // 트랜젝션 시작
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+
+        // 사용자 생성
+        const newUserId = await User.InsertUserForOauth(conn, { oauthType: 'LINE', oauthId: userId });
+
+        // 사용자 프로필 생성
+        await UserProfile.InsertUserProfile(conn, { userId: newUserId });
+
+        // 토큰 생성
+        const accessToken = await jwt.sign(
+          {
+            service: "USER",
+            tokenType: "ACCESSTOKEN",
+            id: newUserId,
+          }
+        );
+        await conn.commit();
+
+        return res.status(200).json({
+          success: true,
+          userInfo: {
+            id: newUserId, email, link: null
+          },
+          accessToken
+        });
+      }
+
+      delete user.password
+
+      // 토큰 생성
+      const accessToken = await jwt.sign(
+        {
+          service: "USER",
+          tokenType: "ACCESSTOKEN",
+          id: user.id,
+        }
+      );
+
+      return res.status(200).json({
+        success: true,
+        userInfo: user,
+        accessToken
+      });
     } else {
       // 사용자 확인
       const user = await User.GetUserOneByEmail(email);
@@ -45,7 +104,10 @@ export const Login = async (req, res, next) => {
       });
     }
   } catch (e) {
+    if (conn) await conn.rollback();
     return next(e);
+  } finally {
+    if (conn) conn.release();
   }
 };
 

@@ -20,3 +20,10 @@ export const LoginCheck = async (req, res, next) => {
   if (!req.decoded) return res.status(403).json({ success: false, msg: 'Permission Denided' });
   next();
 };
+
+export const AdminLoginCheck = async (req, res, next) => {
+  if (!req.decoded || req.decoded.service !== 'ADMIN') {
+    return res.status(403).json({ success: false, msg: 'Permission Denied' });
+  }
+  next();
+};

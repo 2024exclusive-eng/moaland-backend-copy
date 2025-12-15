@@ -2,6 +2,7 @@ import express from 'express';
 
 import adminRoute from './admin/index.js';
 import userRoute from './user/index.js';
+import { SendVerificationCode } from '../utils/mailgun.js';
 
 const route = express.Router();
 route.use((req, res, next) => {
@@ -15,7 +16,9 @@ route.use((req, res, next) => {
 });
 route.use('/user', userRoute);
 route.use('/admin', adminRoute);
-
+// (()=>{
+//   SendVerificationCode("tkddbs0901@gmail.com")
+// })();
 /**
  * @description Common Routers
  */
