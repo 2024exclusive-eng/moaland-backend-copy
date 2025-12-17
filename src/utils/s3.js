@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as uuid from 'uuid';
 
 const AWSClient = new S3Client({
-  region: 'ap-northeast-2',
+  region: 'ap-southeast-1',
   credentials: {
     accessKeyId: process.env.AWS_IAM_ID,
     secretAccessKey: process.env.AWS_IAM_SECRET_KEY,
@@ -34,8 +34,8 @@ export const uploadS3 = async (file, folderName = '') => {
   try {
     await AWSClient.send(command);
     return {
-      key: `${folderName}/${fileName}.${file.mimetype.split('/')[1]}`,
-      uri: `${process.env.AWS_CDN}/${folderName}/${fileName}.${file.mimetype.split('/')[1]}`
+      key: `assets/${folderName}/${fileName}.${file.mimetype.split('/')[1]}`,
+      uri: `${process.env.AWS_CDN}/assets/${folderName}/${fileName}.${file.mimetype.split('/')[1]}`
     };
   } catch (err) {
     throw err;

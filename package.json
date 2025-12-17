@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node src/index  NODE_ENV=staging",
     "start:dev": "nodemon src/index",
-    "deploy:staging": "sls deploy --aws-profile harulink --stage staging",
-    "deploy:production": "sls deploy --aws-profile harulink --stage production"
+    "deploy:staging": "sls deploy --aws-profile k-viewo --stage staging",
+    "deploy:production": "sls deploy --aws-profile k-viewo --stage production"
   },
   "author": "",
   "license": "ISC",

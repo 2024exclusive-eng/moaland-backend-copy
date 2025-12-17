@@ -10,17 +10,17 @@ export const sendSimpleMail = async (email, text) => {
   const formData = new FormData();
   formData.append('from', process.env.MAILGUN_SEND_EMAIL);
   formData.append('to', email);
-  formData.append('subject', '[Harulink] Your Verification Code from Harulink');
+  formData.append('subject', '[K-Viewo] Your Verification Code from K-Viewo');
   formData.append('text', `Hello,
 
-  Thank you for using Harulink. Your verification code is: ${text}
-  
+  Thank you for using K-Viewo. Your verification code is: ${text}
+
   Please enter this code on the verification page to continue. This code will expire in 10 minutes.
-  
+
   If you did not request this code, please ignore this email or contact support if you have any questions.
-  
+
   Best regards,
-  The Harulink Team
+  The K-Viewo Team
   `);
 
   try {

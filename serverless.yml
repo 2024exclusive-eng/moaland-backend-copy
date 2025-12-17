@@ -1,12 +1,12 @@
-service: harulink-backend
+service: k-viewo-backend
 frameworkVersion: "3"
 
 provider:
   name: aws
   runtime: nodejs20.x
   stage: ${opt:stage, 'staging'}
-  region: ap-northeast-2
-  deploymentBucket: harulink
+  region: ap-southeast-1
+  deploymentBucket: k-viewo
 
 package:
   exclude:
