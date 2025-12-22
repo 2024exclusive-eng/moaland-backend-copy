@@ -75,6 +75,13 @@ const ERROR = {
   MISSION_NEED_NAME: { code: 5005, msg: '이름을 입력해주세요.' },
   MISSION_NEED_SOCIAL: { code: 5006, msg: '소셜정보를 입력해주세요.' },
   MISSION_NEED_ADDRESS: { code: 5007, msg: '주소를 입력해주세요.' },
+  MISSION_NEED_LINKS: { code: 5008, msg: '컨텐츠 링크를 입력해주세요.' },
+  MISSION_NOT_FOUND: { code: 5009, msg: '미션을 찾을 수 없습니다.' },
+  MISSION_CONTENT_PERIOD_EXPIRED: { code: 5010, msg: '컨텐츠 등록 기간이 만료되었습니다.' },
+  MISSION_CONTENT_PERIOD_NOT_STARTED: { code: 5011, msg: '컨텐츠 등록 기간이 시작되지 않았습니다.' },
+  MISSION_NEED_INSTAGRAM: { code: 5012, msg: 'Instagram 링크를 입력해주세요.' },
+  MISSION_NEED_WECHAT: { code: 5013, msg: 'WeChat ID를 입력해주세요.' },
+  MISSION_NEED_VISIT_DATE: { code: 5014, msg: '방문 날짜와 시간을 입력해주세요.' },
 
   // POINT 60XX
   NOT_ENOUGH_BALANCE: { code: 6001, msg: '포인트가 충분하지 않습니다.' },

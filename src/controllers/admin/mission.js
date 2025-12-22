@@ -22,7 +22,13 @@ export const GetMissionStatus = async (req, res, next) => {
       newMissions: newMissions.paging.totalItems,
       selectMissions: selectMissions.paging.totalItems,
       selectedMissions: selectedMissions.paging.totalItems,
-      completeMissions: completeMissions.paging.totalItems
+      completeMissions: completeMissions.paging.totalItems,
+      // Additional statistics from the latest query
+      statistics: {
+        mustSelectToday: completeMissions.statistics.mustSelectToday,
+        delayedEnrollments: completeMissions.statistics.delayedEnrollments,
+        inProgress: completeMissions.statistics.inProgress
+      }
     });
   } catch (e) {
     return next(e);
@@ -55,6 +61,8 @@ export const GetMissionDetail = async (req, res, next) => {
   try {
     const { id } = req.params;
 
+    console.log(id)
+
     const mission = await Mission.GetMissionByMissionId(id);
     const enrollUser = await MissionEnroll.GetUsersByMissionId(id);
 
@@ -64,10 +72,10 @@ export const GetMissionDetail = async (req, res, next) => {
       }
       acc[user.status].push(user);
       return acc;
-    }, { enroll: [], select: [], complete: [] });
+    }, { applied: [], selected: [], complete: [] });
 
-    const enrollUsers = enrollUsersByStatus.enroll;
-    const selectUsers = enrollUsersByStatus.select;
+    const enrollUsers = enrollUsersByStatus.applied;
+    const selectUsers = enrollUsersByStatus.selected;
     const completeUsers = enrollUsersByStatus.complete;
 
     return res.status(200).json({ success: true, mission, enrollUsers, selectUsers, completeUsers });

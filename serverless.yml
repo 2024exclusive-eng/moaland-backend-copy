@@ -12,6 +12,8 @@ package:
   exclude:
     - .idea/**
     - .vscode/**
+    - '*.md'
+    - '*.sql'
 
 functions:
   main:

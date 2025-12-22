@@ -34,8 +34,8 @@ export const uploadS3 = async (file, folderName = '') => {
   try {
     await AWSClient.send(command);
     return {
-      key: `assets/${folderName}/${fileName}.${file.mimetype.split('/')[1]}`,
-      uri: `${process.env.AWS_CDN}/assets/${folderName}/${fileName}.${file.mimetype.split('/')[1]}`
+      key: fileKey,
+      uri: `${process.env.AWS_CDN}/${fileKey}`
     };
   } catch (err) {
     throw err;

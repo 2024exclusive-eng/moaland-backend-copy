@@ -113,14 +113,22 @@ export const GetMissionListByUserId = async ({ page, item, type, userId }) => {
 
 /**
  * @function InsertMissionEnroll
- * @param {obj}
- * @returns {Promise([obj] | null)} 
+ * @param {number} missionId
+ * @param {number} userId
+ * @param {string} name
+ * @param {string} instagramLink
+ * @param {string} wechatId
+ * @param {string} visitDatetimeStart - ISO datetime string for visit start
+ * @param {string} visitDatetimeEnd - ISO datetime string for visit end
+ * @param {string} memo - Optional notes
+ * @returns {Promise<number>} - Returns insertId
  */
-export const InsertMissionEnroll = async (missionId, userId, name, social, address) => {
+export const InsertMissionEnroll = async (missionId, userId, name, instagramLink, wechatId, visitDatetimeStart, visitDatetimeEnd, memo) => {
   try {
     const [data] = await pool.query(
-      `INSERT INTO mission_enroll (mission_id, user_id, name, social, address) VALUES (?, ?, ?, ?, ?)`,
-      [missionId, userId, name, social, address]
+      `INSERT INTO mission_enroll (mission_id, user_id, name, instagram_link, wechat_id, visit_datetime_start, visit_datetime_end, memo)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [missionId, userId, name, instagramLink, wechatId, visitDatetimeStart, visitDatetimeEnd, memo]
     );
 
     return data.insertId;
@@ -150,17 +158,22 @@ export const DeleteMissionEnroll = async (missionId, userId) => {
 
 /**
  * @function UpdateMissionContent
- * @param {obj}
- * @returns {Promise([obj] | null)} 
+ * @param {number} missionId
+ * @param {number} userId
+ * @param {object} links - JSON object with platform URLs: {Xiaohongshu: "url", Instagram: "url"}
+ * @returns {Promise([obj] | null)}
  */
-export const UpdateMissionContent = async ({ missionId, userId, link }) => {
+export const UpdateMissionContent = async ({ missionId, userId, links }) => {
   try {
+    const linksJson = JSON.stringify(links);
+
     const result = await pool.query(
-      `UPDATE mission_enroll 
-       SET link = ?, link_updated = NOW()
-       WHERE mission_id = ? AND user_id = ? AND status = 'select'`,
-      [link, missionId, userId]
+      `UPDATE mission_enroll
+       SET link = ?, link_updated = NOW(), status = 'completed'
+       WHERE mission_id = ? AND user_id = ? AND status IN ('applied', 'selected')`,
+      [linksJson, missionId, userId]
     );
+
     return result;
   } catch (e) {
     throw e;
@@ -175,9 +188,21 @@ export const UpdateMissionContent = async ({ missionId, userId, link }) => {
 export const GetUsersByMissionId = async (missionId) => {
   try {
     const [result] = await pool.query(
-      `SELECT mission_enroll.id AS missionEnrollId, user_id AS userId, name, social, address, status, link, link_updated AS linkUpdated, created
+      `SELECT mission_enroll.id AS missionEnrollId,
+              mission_enroll.user_id AS userId,
+              mission_enroll.name,
+              mission_enroll.social,
+              mission_enroll.address,
+              mission_enroll.status,
+              mission_enroll.link,
+              mission_enroll.link_updated AS linkUpdated,
+              mission_enroll.created,
+              user.email,
+              user.link AS userLink,
+              user.oauth_type AS oauthType
        FROM mission_enroll
-       WHERE mission_id = ?`,
+       INNER JOIN user ON mission_enroll.user_id = user.id
+       WHERE mission_enroll.mission_id = ?`,
       [missionId]
     );
 
