@@ -191,8 +191,6 @@ export const GetUsersByMissionId = async (missionId) => {
       `SELECT mission_enroll.id AS missionEnrollId,
               mission_enroll.user_id AS userId,
               mission_enroll.name,
-              mission_enroll.social,
-              mission_enroll.address,
               mission_enroll.status,
               mission_enroll.link,
               mission_enroll.link_updated AS linkUpdated,
