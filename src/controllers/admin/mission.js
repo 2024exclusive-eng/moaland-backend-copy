@@ -1,8 +1,5 @@
-import pool from '../../utils/pool.js';
-import EC from '../../utils/error.js';
 import * as Mission from '../../libs/mission.js';
 import * as MissionEnroll from '../../libs/missionEnroll.js';
-import { isEmpty } from '../../utils/common.js';
 
 /**
  * @function GetMissionStatus
@@ -11,23 +8,15 @@ import { isEmpty } from '../../utils/common.js';
  */
 export const GetMissionStatus = async (req, res, next) => {
   try {
-
-    const newMissions = await Mission.GetMissionListByStatus('new');
-    const selectMissions = await Mission.GetMissionListByStatus('select');
-    const selectedMissions = await Mission.GetMissionListByStatus('selected');
-    const completeMissions = await Mission.GetMissionListByStatus('complete');
+    const statistics = await Mission.GetMissionStatistics();
 
     return res.status(200).json({
       success: true,
-      newMissions: newMissions.paging.totalItems,
-      selectMissions: selectMissions.paging.totalItems,
-      selectedMissions: selectedMissions.paging.totalItems,
-      completeMissions: completeMissions.paging.totalItems,
-      // Additional statistics from the latest query
       statistics: {
-        mustSelectToday: completeMissions.statistics.mustSelectToday,
-        delayedEnrollments: completeMissions.statistics.delayedEnrollments,
-        inProgress: completeMissions.statistics.inProgress
+        totalMissions: statistics.totalMissions,
+        mustSelectToday: statistics.mustSelectToday,
+        delayedEnrollments: statistics.delayedEnrollments,
+        inProgress: statistics.inProgress
       }
     });
   } catch (e) {
@@ -42,9 +31,18 @@ export const GetMissionStatus = async (req, res, next) => {
  */
 export const GetMissionList = async (req, res, next) => {
   try {
-    const { page, item, type } = req.query;
+    const { page, item, search, status, selection_status, region, category, social } = req.query;
 
-    const missions = await Mission.GetMissionListByStatus(type, { page, item });
+    const missions = await Mission.GetMissionListByStatus({
+      page,
+      item,
+      search,
+      status,
+      selection_status,
+      region,
+      category,
+      social
+    });
 
     return res.status(200).json({ success: true, missions });
   } catch (e) {
@@ -61,8 +59,6 @@ export const GetMissionDetail = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    console.log(id)
-
     const mission = await Mission.GetMissionByMissionId(id);
     const enrollUser = await MissionEnroll.GetUsersByMissionId(id);
 
@@ -72,11 +68,11 @@ export const GetMissionDetail = async (req, res, next) => {
       }
       acc[user.status].push(user);
       return acc;
-    }, { applied: [], selected: [], complete: [] });
+    }, { applied: [], selected: [], completed: [] });
 
     const enrollUsers = enrollUsersByStatus.applied;
     const selectUsers = enrollUsersByStatus.selected;
-    const completeUsers = enrollUsersByStatus.complete;
+    const completeUsers = enrollUsersByStatus.completed;
 
     return res.status(200).json({ success: true, mission, enrollUsers, selectUsers, completeUsers });
   } catch (e) {
@@ -134,6 +130,38 @@ export const SelectMissionUser = async (req, res, next) => {
     await MissionEnroll.UpdateMissionEnrollStatus(enrollId, type);
 
     return res.status(200).json({ success: true });
+  } catch (e) {
+    return next(e);
+  }
+};
+
+/**
+ * @function SelectMissionUser
+ * @description 사용자 선정
+ * @returns {obj}
+ */
+export const UpdatePublicMission = async (req, res, next) => {
+  try {
+    const { missionId } = req.params;
+    const { status } = req.body;
+    await Mission.UpdatePublicMission(missionId, status);
+
+    return res.status(200).json({ success: true });
+  } catch (e) {
+    return next(e);
+  }
+};
+
+/**
+ * @function GetMissionFilterCounts
+ * @description 미션 필터 카운트 조회 (UI 필터 옵션에 표시할 숫자)
+ * @returns {obj}
+ */
+export const GetMissionFilterCounts = async (req, res, next) => {
+  try {
+    const counts = await Mission.GetMissionFilterCounts();
+
+    return res.status(200).json({ success: true, counts });
   } catch (e) {
     return next(e);
   }

@@ -26,14 +26,30 @@ export const GetUserDetail = async (req, res, next) => {
   try {
     const { id } = req.params;
     const user = await User.GetUserOneById(id);
-    
-    delete user.password;
-    
-    const enrollMission = await MissionEnroll.GetMissionListByUserId({ userId: id, page: 1, item: 10000, type: "enroll" });
-    const selectMission = await MissionEnroll.GetMissionListByUserId({ userId: id, page: 1, item: 10000, type: "select" });
-    const completeMission = await MissionEnroll.GetMissionListByUserId({ userId: id, page: 1, item: 10000, type: "complete" });
 
-    return res.status(200).json({ success: true, user, enrollMission, selectMission, completeMission });
+    delete user.password;
+
+    const enrollMission = await MissionEnroll.GetMissionListByUserId({ userId: id, page: 1, item: 10000, type: "selected" });
+    const selectMission = await MissionEnroll.GetMissionListByUserId({ userId: id, page: 1, item: 10000, type: "applied" });
+    const completeMission = await MissionEnroll.GetMissionListByUserId({ userId: id, page: 1, item: 10000, type: "completed" });
+    const endedMission = await MissionEnroll.GetMissionListByUserId({ userId: id, page: 1, item: 10000, type: "ended" });
+
+    return res.status(200).json({ success: true, user, enrollMission, selectMission, completeMission, endedMission });
+  } catch (e) {
+    return next(e);
+  }
+};
+
+/**
+ * @function GetUserStatus
+ * @description 사용자 통계 조회 (총 사용자 수, 최근 30일 신규 가입자, 탈퇴 회원)
+ * @returns {obj}
+ */
+export const GetUserStatus = async (req, res, next) => {
+  try {
+    const data = await User.GetUserStatus();
+
+    return res.status(200).json({ success: true, data });
   } catch (e) {
     return next(e);
   }

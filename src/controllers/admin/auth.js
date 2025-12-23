@@ -12,8 +12,6 @@ export const Login = async (req, res, next) => {
   try {
     const { admin, pw } = req.body;
 
-    console.log(bcrypt.hashSync(pw, 10));
-
     // 사용자 확인
     const user = await Admin.GetAdminOneById(admin);
     if (!user || !bcrypt.compareSync(pw, user.pw))

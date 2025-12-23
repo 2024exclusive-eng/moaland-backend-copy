@@ -46,55 +46,71 @@ export const GetMissionListByUserId = async ({ page, item, type, userId }) => {
     const currentPage = page ? parseInt(page) : 1;
     const offset = (currentPage - 1) * itemsPerPage;
 
-    // 기본 type이 비어 있으면 "enroll"로 설정
-    type = type === "" ? "enroll" : type;
+    type = type === "" ? "selected" : type;
 
-    // type이 complete인 경우 point 타입도 함께 조회하기 위해 OR 조건 추가
-    const statusCondition = type === "complete" ? `(mission_enroll.status = 'complete' OR mission_enroll.status = 'point')` : `mission_enroll.status = ?`;
+    let statusCondition;
+    let additionalCondition = '';
+    let queryParams;
+    let countParams;
+
+    if (type === "completed") {
+      statusCondition = `(mission_enroll.status = 'completed' OR mission_enroll.status = 'point')`;
+      queryParams = [userId, itemsPerPage, offset];
+      countParams = [userId];
+    } else if (type === "ended") {
+      statusCondition = `1=1`;
+      additionalCondition = ` AND mission.mission_end_date < NOW()`;
+      queryParams = [userId, itemsPerPage, offset];
+      countParams = [userId];
+    } else {
+      statusCondition = `mission_enroll.status = ?`;
+      queryParams = [userId, type, itemsPerPage, offset];
+      countParams = [userId, type];
+    }
 
     const [totalResult] = await pool.query(
       `SELECT COUNT(*) AS totalCount
-       FROM mission_enroll 
-       WHERE mission_enroll.user_id = ? 
-       AND ${statusCondition}`,
-      type === "complete" ? [userId] : [userId, type]
+       FROM mission_enroll
+       INNER JOIN mission ON mission_enroll.mission_id = mission.id
+       WHERE mission_enroll.user_id = ?
+       AND ${statusCondition}${additionalCondition}`,
+      countParams
     );
 
     const totalItems = totalResult[0].totalCount;
     const totalPages = Math.ceil(totalItems / itemsPerPage);
 
     const [data] = await pool.query(
-      `SELECT mission.id AS missionId, 
-              mission.category AS category, 
-              mission.enroll_start_date AS enrollStartDate, 
-              mission.enroll_end_date AS enrollEndDate, 
+      `SELECT mission.id AS missionId,
+              mission.category AS category,
+              mission.enroll_start_date AS enrollStartDate,
+              mission.enroll_end_date AS enrollEndDate,
               mission.select_date AS selectDate,
               mission.payment_date AS paymentDate,
               mission.mission_start_date AS missionStartDate,
               mission.mission_end_date AS missionEndDate,
-              mission.social AS social, 
-              mission.point AS point, 
-              mission.max_enroll AS maxEnroll, 
-              mission.brand AS brand, 
-              mission.title AS title, 
+              mission.social AS social,
+              mission.point AS point,
+              mission.max_enroll AS maxEnroll,
+              mission.brand AS brand,
+              mission.title AS title,
               mission.thumbnail_img AS thumbnailImg,
               mission_enroll.id AS enrollId,
               mission_enroll.name AS userName,
-              mission_enroll.address AS address,
               mission_enroll.status AS status,
               mission_enroll.link AS link,
               mission_enroll.link_updated AS linkUpdated,
               mission_enroll.created AS created,
-              (SELECT COUNT(*) 
-               FROM mission_enroll AS me 
+              (SELECT COUNT(*)
+               FROM mission_enroll AS me
                WHERE me.mission_id = mission.id) AS enrollCount
-       FROM mission_enroll 
+       FROM mission_enroll
        INNER JOIN mission ON mission_enroll.mission_id = mission.id
-       WHERE mission_enroll.user_id = ? 
-       AND ${statusCondition}
+       WHERE mission_enroll.user_id = ?
+       AND ${statusCondition}${additionalCondition}
        ORDER BY mission_enroll.created DESC
        LIMIT ? OFFSET ?`,
-      type === "complete" ? [userId, itemsPerPage, offset] : [userId, type, itemsPerPage, offset]
+      queryParams
     );
 
     return {
@@ -192,6 +208,11 @@ export const GetUsersByMissionId = async (missionId) => {
               mission_enroll.user_id AS userId,
               mission_enroll.name,
               mission_enroll.status,
+              mission_enroll.wechat_id,
+              mission_enroll.instagram_link,
+              mission_enroll.visit_datetime_start,
+              mission_enroll.visit_datetime_end,
+              mission_enroll.memo,
               mission_enroll.link,
               mission_enroll.link_updated AS linkUpdated,
               mission_enroll.created,

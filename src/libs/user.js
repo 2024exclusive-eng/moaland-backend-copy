@@ -40,27 +40,41 @@ export const GetUserList = async (paging, search) => {
     const currentPage = paging?.page ? parseInt(paging.page) : 1;
     const offset = (currentPage - 1) * itemsPerPage;
 
-    let query = `SELECT id, email, link, oauth_type AS oauthType, account, depositor FROM user`;
+    let query = `
+      SELECT
+        u.id,
+        u.email,
+        u.link,
+        u.oauth_type AS oauthType,
+        u.account,
+        u.depositor,
+        (SELECT COUNT(*) FROM mission_enroll me WHERE me.user_id = u.id AND me.status = 'applied') AS appliedMission,
+        (SELECT COUNT(*) FROM mission_enroll me WHERE me.user_id = u.id AND me.status = 'selected') AS selectedMission,
+        (SELECT COUNT(*) FROM mission_enroll me WHERE me.user_id = u.id) AS registeredMission,
+        (SELECT COUNT(*) FROM mission_enroll me
+         INNER JOIN mission m ON me.mission_id = m.id
+         WHERE me.user_id = u.id AND m.mission_end_date < NOW()) AS endedCampaign
+      FROM user u`;
     let countQuery = `SELECT count(id) AS total FROM user`;
     let queryParams = [];
     let countParams = [];
 
     if (search) {
-      query += ` WHERE email LIKE ? OR link LIKE ?`;
+      query += ` WHERE u.email LIKE ? OR u.link LIKE ?`;
       countQuery += ` WHERE email LIKE ? OR link LIKE ?`;
       queryParams.push(`%${search}%`, `%${search}%`);
       countParams.push(`%${search}%`, `%${search}%`);
     }
 
-    query += ` ORDER BY id DESC LIMIT ? OFFSET ?`;
+    query += ` ORDER BY u.id DESC LIMIT ? OFFSET ?`;
     queryParams.push(itemsPerPage, offset);
-    
+
     const [totalResult] = await pool.query(countQuery, countParams);
     const totalItems = totalResult[0].total;
     const totalPages = Math.ceil(totalItems / itemsPerPage);
 
     const [data] = await pool.query(query, queryParams);
-    
+
     return {
       data,
       paging: {
@@ -241,6 +255,26 @@ export const DeleteUser = async (txPool, { userId }) => {
     );
 
     return data.affectedRows;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * @function GetUserStatus
+ * @description Get user statistics including total count, new members in past 30 days, and withdrawn members
+ * @returns {Promise<object>} { usersCount, newMembersPast30Days, withdrawnMembers }
+ */
+export const GetUserStatus = async () => {
+  try {
+    const [result] = await pool.query(`
+      SELECT
+        (SELECT COUNT(*) FROM user WHERE is_delete = 'N') AS usersCount,
+        (SELECT COUNT(*) FROM user WHERE is_delete = 'N' AND created >= DATE_SUB(NOW(), INTERVAL 30 DAY)) AS newMembersPast30Days,
+        (SELECT COUNT(*) FROM user WHERE is_delete = 'Y') AS withdrawnMembers
+    `);
+
+    return result[0];
   } catch (e) {
     throw e;
   }
