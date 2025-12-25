@@ -22,6 +22,7 @@ export const GetMissionList = async filters => {
              mission.brand AS brand,
              mission.title AS title,
              mission.thumbnail_img AS thumbnailImg,
+             mission.is_recommended AS isRecommended,
              (SELECT COUNT(mission_enroll.id)
               FROM mission_enroll
               WHERE mission_enroll.mission_id = mission.id) AS enrollCount
@@ -41,6 +42,14 @@ export const GetMissionList = async filters => {
     if (filters.social) {
       conditions.push('mission.social = ?');
       queryParams.push(filters.social);
+    }
+
+    // is_recommended 필터 추가
+    if (filters.is_recommended !== undefined) {
+      conditions.push('mission.is_recommended = ?');
+      // Convert string 'true'/'false' or boolean to 1/0
+      const isRecommended = filters.is_recommended === 'true' || filters.is_recommended === true ? 1 : 0;
+      queryParams.push(isRecommended);
     }
 
     // 필터 조건이 있을 경우 WHERE 절 추가
@@ -110,6 +119,7 @@ export const GetMissionByMissionId = async missionId => {
               mission.mission_contents AS missionContents,
               mission.additional_info AS additionalInfo,
               mission.guideline AS guideline,
+              mission.is_recommended AS isRecommended,
               (SELECT COUNT(mission_enroll.id)
                FROM mission_enroll
                WHERE mission_enroll.mission_id = mission.id) AS enrollCount
@@ -171,6 +181,7 @@ export const InsertMission = async missionData => {
       missionContents,
       additionalInfo,
       guideline,
+      isRecommended,
     } = missionData;
 
     const [result] = await pool.query(
@@ -179,8 +190,8 @@ export const InsertMission = async missionData => {
         mission_start_date, mission_end_date, content_start_date, content_end_date,
         social, region, address, latitude, longitude, point, max_enroll,
         brand, title, thumbnail_img, detail_img, goods_contents, mission_contents,
-        additional_info, guideline
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        additional_info, guideline, is_recommended
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         category,
         enrollStartDate,
@@ -206,6 +217,7 @@ export const InsertMission = async missionData => {
         missionContents,
         additionalInfo,
         guideline,
+        isRecommended ? 1 : 0,
       ],
     );
 
@@ -248,6 +260,7 @@ export const UpdateMission = async (missionId, missionData) => {
       missionContents,
       additionalInfo,
       guideline,
+      isRecommended,
     } = missionData;
 
     const [result] = await pool.query(
@@ -275,7 +288,8 @@ export const UpdateMission = async (missionId, missionData) => {
         goods_contents = ?,
         mission_contents = ?,
         additional_info = ?,
-        guideline = ?
+        guideline = ?,
+        is_recommended = ?
       WHERE id = ?`,
       [
         category,
@@ -302,6 +316,7 @@ export const UpdateMission = async (missionId, missionData) => {
         missionContents,
         additionalInfo,
         guideline,
+        isRecommended ? 1 : 0,
         missionId,
       ],
     );
@@ -416,6 +431,7 @@ export const GetMissionListByStatus = async (filters = {}) => {
              mission.brand AS brand,
              mission.title AS title,
              mission.is_public AS is_public,
+             mission.is_recommended AS isRecommended,
              mission.thumbnail_img AS thumbnailImg,
              mission.created,
              mission.select_date AS selectDate,
@@ -542,6 +558,13 @@ export const GetMissionListByStatus = async (filters = {}) => {
       countParams.push(`%${filters.search}%`, `%${filters.search}%`);
     }
 
+    if (filters.is_recommended !== undefined) {
+      conditions.push('mission.is_recommended = ?');
+      const isRecommended = filters.is_recommended === 'true' || filters.is_recommended === true ? 1 : 0;
+      queryParams.push(isRecommended);
+      countParams.push(isRecommended)
+    }
+
     // Apply conditions
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');
@@ -579,7 +602,6 @@ export const GetMissionListByStatus = async (filters = {}) => {
  */
 export const UpdatePublicMission = async (missionId, payload) => {
   try {
-    console.log(Number(payload))
     const result = await pool.query(
       `UPDATE mission
        SET is_public = ?
@@ -587,6 +609,26 @@ export const UpdatePublicMission = async (missionId, payload) => {
       [Number(payload), missionId]
     );
     return result;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * @function UpdateRecommendedMission
+ * @param {number} missionId
+ * @param {boolean} isRecommended - true or false
+ * @returns {Promise<affectedRows>}
+ */
+export const UpdateRecommendedMission = async (missionId, isRecommended) => {
+  try {
+    const [result] = await pool.query(
+      `UPDATE mission
+       SET is_recommended = ?
+       WHERE id = ?`,
+      [isRecommended ? 1 : 0, missionId]
+    );
+    return result.affectedRows;
   } catch (e) {
     throw e;
   }

@@ -10,6 +10,7 @@ router.post('/:id', mission.PostMission); // 미션 생성 또는 수정
 router.delete('/:id', mission.DeleteMission); // 미션 삭제
 router.post('/status/:enrollId/:type', mission.SelectMissionUser); // 미션 선정자 지정
 router.put('/:missionId/draft', mission.UpdatePublicMission); // 미션 공개/비공개 설정
+router.put('/:missionId/recommended', mission.UpdateRecommendedMission); // 미션 공개/비공개 설정
 
 export default router;
 

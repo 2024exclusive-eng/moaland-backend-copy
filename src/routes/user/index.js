@@ -8,6 +8,9 @@ import inquiryRoute from './inquiry.js';
 import statisticsRoute from './statistics.js';
 import pointRoute from './point.js';
 import uploadRoute from './upload.js';
+import bannerRoute from './banner.js';
+import eventRoute from './event.js';
+import faqRoute from './faq.js';
 
 const route = express.Router();
 route.use('/auth', authRoute);
@@ -18,5 +21,8 @@ route.use('/inquiry', inquiryRoute);
 route.use('/statistics', statisticsRoute);
 route.use('/point', pointRoute);
 route.use('/upload', uploadRoute);
+route.use('/banner', bannerRoute);
+route.use('/event', eventRoute);
+route.use('/faq', faqRoute);
 
 export default route;

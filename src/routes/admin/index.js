@@ -4,6 +4,9 @@ import authRoute from './auth.js';
 import missionRoute from './mission.js';
 import manageRoute from './manage.js';
 import noticeRoute from './notice.js';
+import bannerRoute from './banner.js';
+import eventRoute from './event.js';
+import faqRoute from './faq.js';
 import * as upload from "../../controllers/admin/upload.js";
 
 import { AdminLoginCheck } from "../../middlewares/auth.js";
@@ -20,6 +23,9 @@ route.use(AdminLoginCheck);
 route.use('/mission', missionRoute);
 route.use('/manage', manageRoute);
 route.use('/notice', noticeRoute);
+route.use('/banner', bannerRoute);
+route.use('/event', eventRoute);
+route.use('/faq', faqRoute);
 route.post('/image', AdminLoginCheck, uploadStorage.single("file"), upload.UploadUserImage); // 업로드 이미지
 
 export default route;

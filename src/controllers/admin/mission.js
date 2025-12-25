@@ -31,7 +31,7 @@ export const GetMissionStatus = async (req, res, next) => {
  */
 export const GetMissionList = async (req, res, next) => {
   try {
-    const { page, item, search, status, selection_status, region, category, social } = req.query;
+    const { page, item, search, status, selection_status, region, category, social, is_recommended } = req.query;
 
     const missions = await Mission.GetMissionListByStatus({
       page,
@@ -39,6 +39,7 @@ export const GetMissionList = async (req, res, next) => {
       search,
       status,
       selection_status,
+      is_recommended,
       region,
       category,
       social
@@ -145,6 +146,23 @@ export const UpdatePublicMission = async (req, res, next) => {
     const { missionId } = req.params;
     const { status } = req.body;
     await Mission.UpdatePublicMission(missionId, status);
+
+    return res.status(200).json({ success: true });
+  } catch (e) {
+    return next(e);
+  }
+};
+
+/**
+ * @function SelectMissionUser
+ * @description 사용자 선정
+ * @returns {obj}
+ */
+export const UpdateRecommendedMission = async (req, res, next) => {
+  try {
+    const { missionId } = req.params;
+    const { is_recommended } = req.body;
+    await Mission.UpdateRecommendedMission(missionId, is_recommended);
 
     return res.status(200).json({ success: true });
   } catch (e) {
