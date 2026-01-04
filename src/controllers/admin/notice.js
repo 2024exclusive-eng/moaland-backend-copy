@@ -9,9 +9,8 @@ import * as Notice from '../../libs/notice.js';
  */
 export const GetNotice = async (req, res, next) => {
   try {
-    const { page, item } = req.query;
-    console.log("etstse")
-    const data = await Notice.GetNotice({ page, item });
+    const { page, item, title } = req.query;
+    const data = await Notice.GetNotice({ page, item, title });
 
     return res.status(200).json({ success: true, data });
   } catch (e) {

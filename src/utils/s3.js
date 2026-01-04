@@ -21,43 +21,67 @@ const CloudFlareClient = new S3Client({
 
 export const uploadS3 = async (file, folderName = '') => {
   const fileName = uuid.v4();
-  const stream = fs.createReadStream(file.path);
   const fileKey = `assets/${folderName}/${fileName}.${file.mimetype.split('/')[1]}`;
+
+  // Read file as buffer instead of stream for reliability in Lambda
+  const fileContent = fs.readFileSync(file.path);
 
   const command = new PutObjectCommand({
     Bucket: process.env.AWS_S3_BUCKET,
     Key: `${fileKey}`,
-    Body: stream,
+    Body: fileContent,
     ContentType: file.mimetype,
   });
 
   try {
     await AWSClient.send(command);
+
+    // Clean up temp file after successful upload
+    fs.unlink(file.path, (err) => {
+      if (err) console.error('Error deleting temp file:', err);
+    });
+
     return {
       key: fileKey,
       uri: `${process.env.AWS_CDN}/${fileKey}`
     };
   } catch (err) {
+    // Clean up temp file even on error
+    fs.unlink(file.path, (unlinkErr) => {
+      if (unlinkErr) console.error('Error deleting temp file:', unlinkErr);
+    });
     throw err;
   }
 };
 
 export const uploadCloudFlare = async (file, folderName = '') => {
   const fileName = uuid.v4();
-  const stream = fs.createReadStream(file.path);
   const fileKey = `${folderName}/${fileName}.${file.mimetype.split('/')[1]}`;
+
+  // Read file as buffer instead of stream for reliability in Lambda
+  const fileContent = fs.readFileSync(file.path);
 
   const command = new PutObjectCommand({
     Bucket: process.env.CLOUD_FLARE_BUCKET,
     Key: `${fileKey}`,
-    Body: stream,
+    Body: fileContent,
     ContentType: file.mimetype,
   });
 
   try {
     await CloudFlareClient.send(command);
+
+    // Clean up temp file after successful upload
+    fs.unlink(file.path, (err) => {
+      if (err) console.error('Error deleting temp file:', err);
+    });
+
     return fileKey;
   } catch (err) {
+    // Clean up temp file even on error
+    fs.unlink(file.path, (unlinkErr) => {
+      if (unlinkErr) console.error('Error deleting temp file:', unlinkErr);
+    });
     throw err;
   }
 };

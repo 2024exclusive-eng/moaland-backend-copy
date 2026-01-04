@@ -11,8 +11,8 @@ import { isEmpty } from '../../utils/common.js';
  */
 export const GetMissionList = async (req, res, next) => {
   try {
-    const { page, item, category, social } = req.query;
-    const data = await Mission.GetMissionList({ page, item, category, social });
+    const { page, item, category, social, is_recommended, deadline_days, sort, region, search } = req.query;
+    const data = await Mission.GetMissionList({ page, item, category, social, is_recommended, search, deadline_days, sort, region });
 
     return res.status(200).json({ success: true, data });
   } catch (e) {
@@ -106,6 +106,36 @@ export const EnrollMission = async (req, res, next) => {
 };
 
 /**
+ * @function CheckEnrollStatus
+ * @description Check if user is enrolled in a mission and get enrollment details
+ * @returns {obj}
+ */
+export const CheckEnrollStatus = async (req, res, next) => {
+  try {
+    const { missionId } = req.params;
+    const userId = req.decoded.id;
+
+    const enrollment = await MissionEnroll.GetUserMissionEnroll(missionId, userId);
+
+    if (!enrollment) {
+      return res.status(200).json({
+        success: true,
+        isEnrolled: false,
+        enrollment: null
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      isEnrolled: true,
+      enrollment
+    });
+  } catch (e) {
+    return next(e);
+  }
+};
+
+/**
  * @function CancelEnrollMission
  * @description 미션 신청 취소
  * @returns {obj}
@@ -153,23 +183,42 @@ export const PostMissionContents = async (req, res, next) => {
       });
     }
 
-    // Check if within content registration period
+    // Check if within mission period OR content registration period
     const now = new Date();
+    const missionStartDate = mission.missionStartDate ? new Date(mission.missionStartDate) : null;
+    const missionEndDate = mission.missionEndDate ? new Date(mission.missionEndDate) : null;
     const contentStartDate = mission.contentStartDate ? new Date(mission.contentStartDate) : null;
     const contentEndDate = mission.contentEndDate ? new Date(mission.contentEndDate) : null;
 
-    if (contentEndDate && now > contentEndDate) {
-      return res.status(403).json({
-        success: false,
-        error: EC('MISSION_CONTENT_PERIOD_EXPIRED')
-      });
-    }
+    // Check if within mission period
+    const withinMissionPeriod = missionStartDate && missionEndDate
+      ? (now >= missionStartDate && now <= missionEndDate)
+      : false;
 
-    if (contentStartDate && now < contentStartDate) {
-      return res.status(403).json({
-        success: false,
-        error: EC('MISSION_CONTENT_PERIOD_NOT_STARTED')
-      });
+    // Check if within content period
+    const withinContentPeriod = (() => {
+      if (contentEndDate && now > contentEndDate) return false;
+      if (contentStartDate && now < contentStartDate) return false;
+      // If both dates are null, consider it as no restriction
+      if (!contentStartDate && !contentEndDate) return true;
+      return true;
+    })();
+
+    // Allow if within either period
+    if (!withinMissionPeriod && !withinContentPeriod) {
+      // Determine which error to show
+      if (contentEndDate && now > contentEndDate) {
+        return res.status(403).json({
+          success: false,
+          error: EC('MISSION_CONTENT_PERIOD_EXPIRED')
+        });
+      }
+      if (contentStartDate && now < contentStartDate) {
+        return res.status(403).json({
+          success: false,
+          error: EC('MISSION_CONTENT_PERIOD_NOT_STARTED')
+        });
+      }
     }
 
     // Validate all required platforms are submitted

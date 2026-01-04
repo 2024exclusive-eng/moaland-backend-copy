@@ -29,9 +29,9 @@ export const GetUserDetail = async (req, res, next) => {
 
     delete user.password;
 
-    const enrollMission = await MissionEnroll.GetMissionListByUserId({ userId: id, page: 1, item: 10000, type: "selected" });
-    const selectMission = await MissionEnroll.GetMissionListByUserId({ userId: id, page: 1, item: 10000, type: "applied" });
-    const completeMission = await MissionEnroll.GetMissionListByUserId({ userId: id, page: 1, item: 10000, type: "completed" });
+    const enrollMission = await MissionEnroll.GetMissionListByUserId({ userId: id, page: 1, item: 10000, type: "applied" });
+    const selectMission = await MissionEnroll.GetMissionListByUserId({ userId: id, page: 1, item: 10000, type: "selected" });
+    const completeMission = await MissionEnroll.GetMissionListByUserId({ userId: id, page: 1, item: 10000, type: "registered" });
     const endedMission = await MissionEnroll.GetMissionListByUserId({ userId: id, page: 1, item: 10000, type: "ended" });
 
     return res.status(200).json({ success: true, user, enrollMission, selectMission, completeMission, endedMission });

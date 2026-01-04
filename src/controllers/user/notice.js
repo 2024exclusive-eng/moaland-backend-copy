@@ -17,3 +17,23 @@ export const GetNotice = async (req, res, next) => {
     return next(e);
   }
 };
+
+/**
+ * @function GetNoticeById
+ * @description Get notice details by ID
+ * @returns {obj}
+ */
+export const GetNoticeById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const data = await Notice.GetNoticeById(id);
+
+    if (!data) {
+      throw { status: 404, code: EC.NOT_FOUND, message: 'Notice not found' };
+    }
+
+    return res.status(200).json({ success: true, data });
+  } catch (e) {
+    return next(e);
+  }
+};

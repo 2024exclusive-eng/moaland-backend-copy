@@ -12,7 +12,16 @@ import * as upload from "../../controllers/admin/upload.js";
 import { AdminLoginCheck } from "../../middlewares/auth.js";
 import multer from "multer";
 
-const uploadStorage = multer({ storage: multer.diskStorage({}) });
+const uploadStorage = multer({
+  storage: multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, '/tmp')
+    },
+    filename: function (req, file, cb) {
+      cb(null, Date.now() + '-' + file.originalname)
+    }
+  })
+});
 const route = express.Router();
 
 // // 인증 이전

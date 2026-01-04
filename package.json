@@ -33,6 +33,7 @@
     "mysql2": "^3.7.0",
     "openai": "^4.24.7",
     "request": "^2.88.2",
+    "resend": "^6.6.0",
     "serverless-http": "^3.2.0",
     "siwe": "^2.1.4",
     "uuid": "^9.0.1"

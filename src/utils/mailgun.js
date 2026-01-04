@@ -1,44 +1,34 @@
 import * as crypto from "crypto";
 import EC from './error.js';
-import FormData from 'form-data';
-import axios from 'axios';
+import { Resend } from 'resend';
 
-const API_KEY = process.env.MAILGUN_API_KEY;
-const DOMAIN = process.env.MAILGUN_DOMAIN;
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const sendSimpleMail = async (email, text) => {
-  const formData = new FormData();
-  formData.append('from', process.env.MAILGUN_SEND_EMAIL);
-  formData.append('to', email);
-  formData.append('subject', '[K-Viewo] Your Verification Code from K-Viewo');
-  formData.append('text', `Hello,
-
-  Thank you for using K-Viewo. Your verification code is: ${text}
-
-  Please enter this code on the verification page to continue. This code will expire in 10 minutes.
-
-  If you did not request this code, please ignore this email or contact support if you have any questions.
-
-  Best regards,
-  The K-Viewo Team
-  `);
-
   try {
-    const response = await axios({
-      method: 'post',
-      url: `https://api.mailgun.net/v3/${DOMAIN}/messages`,
-      headers: {
-        'Authorization': `Basic ${Buffer.from(`api:${API_KEY}`).toString('base64')}`,
-        ...formData.getHeaders(),
-      },
-      data: formData
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL,
+      to: email,
+      subject: '[K-Viewo] Your Verification Code from K-Viewo',
+      text: `Hello,
+
+Thank you for using K-Viewo. Your verification code is: ${text}
+
+Please enter this code on the verification page to continue. This code will expire in 10 minutes.
+
+If you did not request this code, please ignore this email or contact support if you have any questions.
+
+Best regards,
+The K-Viewo Team
+`,
     });
 
-    if (response.status === 200) {
-      console.log('메일 전송 완료');
-    } else {
-      console.log('메일 전송 실패:', response.data);
+    if (error) {
+      console.log('메일 전송 실패:', error);
+      return;
     }
+
+    console.log('메일 전송 완료:', data.id);
   } catch (error) {
     console.error('메일 전송 중 오류 발생:', error);
   }
@@ -46,8 +36,7 @@ export const sendSimpleMail = async (email, text) => {
 
 export const SendVerificationCode = async (email) => {
   const sendTime = new Date().getTime();
-  // const rawVerificationCode = Math.floor(10000 + Math.random() * 90000);
-  const rawVerificationCode = "000000";
+  const rawVerificationCode = String(Math.floor(100000 + Math.random() * 900000));
   const rawHash = `${email}-${rawVerificationCode}${process.env.CRYPTO_KEY}:${sendTime}`;
 
   await sendSimpleMail(email, rawVerificationCode);

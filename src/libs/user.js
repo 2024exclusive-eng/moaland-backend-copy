@@ -47,13 +47,15 @@ export const GetUserList = async (paging, search) => {
         u.link,
         u.oauth_type AS oauthType,
         u.account,
+        u.deleted,
+        u.is_delete,
         u.depositor,
         (SELECT COUNT(*) FROM mission_enroll me WHERE me.user_id = u.id AND me.status = 'applied') AS appliedMission,
-        (SELECT COUNT(*) FROM mission_enroll me WHERE me.user_id = u.id AND me.status = 'selected') AS selectedMission,
-        (SELECT COUNT(*) FROM mission_enroll me WHERE me.user_id = u.id) AS registeredMission,
+        (SELECT COUNT(*) FROM mission_enroll me WHERE me.user_id = u.id AND me.status = 'selected' AND me.link IS NULL) AS selectedMission,
+        (SELECT COUNT(*) FROM mission_enroll me WHERE me.user_id = u.id AND me.link IS NOT NULL AND me.status NOT IN ('completed', 'rewarded')) AS registeredMission,
         (SELECT COUNT(*) FROM mission_enroll me
          INNER JOIN mission m ON me.mission_id = m.id
-         WHERE me.user_id = u.id AND m.mission_end_date < NOW()) AS endedCampaign
+         WHERE me.user_id = u.id AND (me.status IN ('completed', 'rewarded') OR (m.content_end_date IS NOT NULL AND m.content_end_date < UTC_TIMESTAMP()) OR (m.content_end_date IS NULL AND m.enroll_end_date < UTC_TIMESTAMP()))) AS endedMission
       FROM user u`;
     let countQuery = `SELECT count(id) AS total FROM user`;
     let queryParams = [];
@@ -97,7 +99,7 @@ export const GetUserList = async (paging, search) => {
 export const GetUserOneById = async id => {
   try {
     const [user] = await pool.query(
-      `SELECT id, email, link, oauth_type AS oauthType, account, depositor, password, created, updated
+      `SELECT id, email, link, oauth_type AS oauthType, account, depositor, password, created, updated, deleted
        FROM user
        WHERE id = ?`,
       [id]
@@ -205,6 +207,21 @@ export const UpdateUserLink = async (txPool, { userId, link }) => {
 };
 
 /**
+ * @function UpdateUserEmail
+ * @param {obj}
+ * @returns {Promise(number)}
+ */
+export const UpdateUserEmail = async (txPool, { userId, email }) => {
+  try {
+    const conn = txPool ?? pool;
+    const [data] = await conn.query(`UPDATE user SET email = ? WHERE id = ?`, [email, userId]);
+    return data.affectedRows;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
  * @function UpdateUserAccount
  * @param {obj}
  * @returns {Promise(number)}
@@ -249,7 +266,8 @@ export const DeleteUser = async (txPool, { userId }) => {
          email = CASE WHEN email IS NOT NULL THEN CONCAT('DELETE_', email) ELSE email END,
          oauth_id = CASE WHEN oauth_id IS NOT NULL THEN CONCAT('DELETE_', oauth_id) ELSE oauth_id END,
          link = CASE WHEN link IS NOT NULL THEN CONCAT('DELETE_', link) ELSE link END,
-         is_delete = 'Y'
+         is_delete = 'Y',
+         deleted = UTC_TIMESTAMP()
        WHERE id = ?`,
       [userId]
     );

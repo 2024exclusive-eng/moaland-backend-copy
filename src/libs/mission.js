@@ -17,8 +17,9 @@ export const GetMissionList = async filters => {
              mission.enroll_start_date AS enrollStartDate,
              mission.enroll_end_date AS enrollEndDate,
              mission.social AS social,
-             mission.point AS point,
              mission.max_enroll AS maxEnroll,
+             mission.point AS point,
+             mission.mission_contents AS missionContent,
              mission.brand AS brand,
              mission.title AS title,
              mission.thumbnail_img AS thumbnailImg,
@@ -31,6 +32,9 @@ export const GetMissionList = async filters => {
 
     const queryParams = [];
     const conditions = [];
+
+    // is_public 필터 (기본값: 공개된 미션만 조회)
+    conditions.push('mission.is_public = 1');
 
     // category 필터 추가
     if (filters.category) {
@@ -52,12 +56,41 @@ export const GetMissionList = async filters => {
       queryParams.push(isRecommended);
     }
 
+    // deadline_days 필터 추가 (마감임박 캠페인)
+    if (filters.deadline_days !== undefined) {
+      const days = parseInt(filters.deadline_days);
+      if (!isNaN(days) && days > 0) {
+        conditions.push('mission.enroll_end_date >= UTC_TIMESTAMP()');
+        conditions.push('mission.enroll_end_date <= DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? DAY)');
+        queryParams.push(days);
+      }
+    }
+
+    // region 필터 추가
+    if (filters.region) {
+      conditions.push('mission.region = ?');
+      queryParams.push(filters.region);
+    }
+
+    // search 필터 추가 (title, brand 검색)
+    if (filters.search) {
+      conditions.push('(mission.title LIKE ? OR mission.brand LIKE ?)');
+      queryParams.push(`%${filters.search}%`, `%${filters.search}%`);
+    }
+
     // 필터 조건이 있을 경우 WHERE 절 추가
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');
     }
 
-    query += ' ORDER BY mission.id DESC LIMIT ? OFFSET ?';
+    // 정렬 옵션
+    if (filters.sort === 'deadline') {
+      query += ' ORDER BY mission.enroll_end_date ASC';
+    } else {
+      query += ' ORDER BY mission.id DESC';
+    }
+
+    query += ' LIMIT ? OFFSET ?';
     queryParams.push(itemsPerPage, offset);
 
     // 필터 조건을 total count 조회 쿼리에 추가
@@ -190,8 +223,8 @@ export const InsertMission = async missionData => {
         mission_start_date, mission_end_date, content_start_date, content_end_date,
         social, region, address, latitude, longitude, point, max_enroll,
         brand, title, thumbnail_img, detail_img, goods_contents, mission_contents,
-        additional_info, guideline, is_recommended
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        additional_info, guideline, is_recommended, is_public
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         category,
         enrollStartDate,
@@ -218,6 +251,7 @@ export const InsertMission = async missionData => {
         additionalInfo,
         guideline,
         isRecommended ? 1 : 0,
+        1
       ],
     );
 
@@ -344,47 +378,47 @@ export const GetMissionCountByStatus = async type => {
       query = `
         SELECT COUNT(*) AS count
         FROM mission
-        WHERE select_date > NOW()
+        WHERE select_date > UTC_TIMESTAMP()
       `;
     } else if (type === 'select') {
       query = `
         SELECT COUNT(*) AS count
         FROM mission
-        WHERE select_date <= NOW()
-          AND mission_end_date > NOW()
-          AND (SELECT COUNT(*) 
-               FROM mission_enroll 
-               WHERE mission_enroll.mission_id = mission.id 
+        WHERE select_date <= UTC_TIMESTAMP()
+          AND mission_end_date > UTC_TIMESTAMP()
+          AND (SELECT COUNT(*)
+               FROM mission_enroll
+               WHERE mission_enroll.mission_id = mission.id
                  AND (mission_enroll.status = 'select' OR mission_enroll.status = 'complete')) < mission.max_enroll
       `;
     } else if (type === 'selected') {
       query = `
         SELECT COUNT(*) AS count
         FROM mission
-        WHERE select_date <= NOW()
-          AND mission_end_date <= NOW()
-          AND (SELECT COUNT(*) 
-               FROM mission_enroll 
-               WHERE mission_enroll.mission_id = mission.id 
+        WHERE select_date <= UTC_TIMESTAMP()
+          AND mission_end_date <= UTC_TIMESTAMP()
+          AND (SELECT COUNT(*)
+               FROM mission_enroll
+               WHERE mission_enroll.mission_id = mission.id
                  AND (mission_enroll.status = 'select' OR mission_enroll.status = 'complete')) >= mission.max_enroll
-          AND EXISTS (SELECT 1 
-                      FROM mission_enroll 
-                      WHERE mission_enroll.mission_id = mission.id 
+          AND EXISTS (SELECT 1
+                      FROM mission_enroll
+                      WHERE mission_enroll.mission_id = mission.id
                         AND mission_enroll.status = 'select')
       `;
     } else if (type === 'complete') {
       query = `
         SELECT COUNT(*) AS count
         FROM mission
-        WHERE select_date <= NOW()
-          AND mission_end_date <= NOW()
-          AND (SELECT COUNT(*) 
-               FROM mission_enroll 
-               WHERE mission_enroll.mission_id = mission.id 
+        WHERE select_date <= UTC_TIMESTAMP()
+          AND mission_end_date <= UTC_TIMESTAMP()
+          AND (SELECT COUNT(*)
+               FROM mission_enroll
+               WHERE mission_enroll.mission_id = mission.id
                  AND (mission_enroll.status = 'select' OR mission_enroll.status = 'complete')) >= mission.max_enroll
-          AND NOT EXISTS (SELECT 1 
-                          FROM mission_enroll 
-                          WHERE mission_enroll.mission_id = mission.id 
+          AND NOT EXISTS (SELECT 1
+                          FROM mission_enroll
+                          WHERE mission_enroll.mission_id = mission.id
                             AND mission_enroll.status != 'complete')
       `;
     } else {
@@ -417,118 +451,146 @@ export const GetMissionListByStatus = async (filters = {}) => {
     const currentPage = filters?.page ? parseInt(filters.page) : 1;
     const offset = (currentPage - 1) * itemsPerPage;
 
+    // Create base query with computed status using cascading priority logic
     let query = `
-      SELECT mission.id AS missionId,
-             mission.category AS category,
-             mission.enroll_start_date AS enrollStartDate,
-             mission.enroll_end_date AS enrollEndDate,
-             mission.content_start_date AS contentStartDate,
-             mission.content_end_date AS contentEndDate,
-             mission.social AS social,
-             mission.region AS region,
-             mission.point AS point,
-             mission.max_enroll AS maxEnroll,
-             mission.brand AS brand,
-             mission.title AS title,
-             mission.is_public AS is_public,
-             mission.is_recommended AS isRecommended,
-             mission.thumbnail_img AS thumbnailImg,
-             mission.created,
-             mission.select_date AS selectDate,
-             mission.payment_date AS paymentDate,
-             mission.mission_start_date AS missionStartDate,
-             mission.mission_end_date AS missionEndDate,
-             (SELECT COUNT(mission_enroll.id)
-              FROM mission_enroll
-              WHERE mission_enroll.mission_id = mission.id) AS enrollCount,
-             (SELECT COUNT(mission_enroll.id)
-              FROM mission_enroll
-              WHERE mission_enroll.mission_id = mission.id
-                AND mission_enroll.status = 'selected') AS selectedParticipantCount
-      FROM mission
+      SELECT mission_with_status.*
+      FROM (
+        SELECT mission.id AS missionId,
+               mission.category AS category,
+               mission.enroll_start_date AS enrollStartDate,
+               mission.enroll_end_date AS enrollEndDate,
+               mission.content_start_date AS contentStartDate,
+               mission.content_end_date AS contentEndDate,
+               mission.social AS social,
+               mission.region AS region,
+               mission.point AS point,
+               mission.max_enroll AS maxEnroll,
+               mission.brand AS brand,
+               mission.title AS title,
+               mission.is_public AS is_public,
+               mission.is_recommended AS isRecommended,
+               mission.thumbnail_img AS thumbnailImg,
+               mission.created,
+               mission.select_date AS selectDate,
+               mission.payment_date AS paymentDate,
+               mission.mission_start_date AS missionStartDate,
+               mission.mission_end_date AS missionEndDate,
+               (SELECT COUNT(mission_enroll.id)
+                FROM mission_enroll
+                WHERE mission_enroll.mission_id = mission.id) AS enrollCount,
+               (SELECT COUNT(mission_enroll.id)
+                FROM mission_enroll
+                WHERE mission_enroll.mission_id = mission.id
+                  AND mission_enroll.status = 'selected') AS selectedParticipantCount,
+               CASE
+                 WHEN mission.enroll_start_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) < DATE(mission.enroll_start_date) THEN 'opening_soon'
+                 WHEN mission.enroll_start_date IS NOT NULL AND mission.enroll_end_date IS NOT NULL
+                   AND DATE(UTC_TIMESTAMP()) >= DATE(mission.enroll_start_date)
+                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.enroll_end_date) THEN 'applying'
+                 WHEN mission.select_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) = DATE(mission.select_date) THEN 'application_deadline'
+                 WHEN mission.mission_start_date IS NOT NULL AND mission.mission_end_date IS NOT NULL
+                   AND DATE(UTC_TIMESTAMP()) >= DATE(mission.mission_start_date)
+                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.mission_end_date) THEN 'in_progress'
+                 WHEN mission.content_start_date IS NOT NULL AND mission.content_end_date IS NOT NULL
+                   AND DATE(UTC_TIMESTAMP()) >= DATE(mission.content_start_date)
+                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.content_end_date) THEN 'registration_deadline'
+                 WHEN mission.content_end_date IS NOT NULL AND mission.enroll_end_date IS NOT NULL
+                   AND DATE(UTC_TIMESTAMP()) > DATE(mission.content_end_date)
+                   AND DATE(UTC_TIMESTAMP()) > DATE(mission.enroll_end_date) THEN 'end'
+                 ELSE 'opening_soon'
+               END AS computed_status,
+               CASE
+                 WHEN mission.select_date IS NULL OR DATE(UTC_TIMESTAMP()) < DATE(mission.select_date) THEN 'waiting'
+                 WHEN mission.select_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) = DATE(mission.select_date) THEN 'selection_date'
+                 WHEN mission.select_date IS NOT NULL AND mission.content_end_date IS NOT NULL
+                   AND DATE(UTC_TIMESTAMP()) > DATE(mission.select_date)
+                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.content_end_date)
+                   AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND mission_enroll.status = 'selected') > 0 THEN 'completed'
+                 WHEN mission.select_date IS NOT NULL AND mission.content_end_date IS NOT NULL
+                   AND DATE(UTC_TIMESTAMP()) > DATE(mission.select_date)
+                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.content_end_date)
+                   AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND mission_enroll.status = 'selected') = 0 THEN 'delayed'
+                 WHEN mission.content_end_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) > DATE(mission.content_end_date) THEN 'selection_deadline'
+                 ELSE 'waiting'
+               END AS computed_selection_status
+        FROM mission
+      ) AS mission_with_status
     `;
 
-    let countQuery = 'SELECT COUNT(*) AS total FROM mission';
+    let countQuery = `
+      SELECT COUNT(*) AS total
+      FROM (
+        SELECT mission.id AS missionId,
+               mission.select_date AS selectDate,
+               mission.content_end_date AS contentEndDate,
+               CASE
+                 WHEN mission.enroll_start_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) < DATE(mission.enroll_start_date) THEN 'opening_soon'
+                 WHEN mission.enroll_start_date IS NOT NULL AND mission.enroll_end_date IS NOT NULL
+                   AND DATE(UTC_TIMESTAMP()) >= DATE(mission.enroll_start_date)
+                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.enroll_end_date) THEN 'applying'
+                 WHEN mission.select_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) = DATE(mission.select_date) THEN 'application_deadline'
+                 WHEN mission.mission_start_date IS NOT NULL AND mission.mission_end_date IS NOT NULL
+                   AND DATE(UTC_TIMESTAMP()) >= DATE(mission.mission_start_date)
+                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.mission_end_date) THEN 'in_progress'
+                 WHEN mission.content_start_date IS NOT NULL AND mission.content_end_date IS NOT NULL
+                   AND DATE(UTC_TIMESTAMP()) >= DATE(mission.content_start_date)
+                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.content_end_date) THEN 'registration_deadline'
+                 WHEN mission.content_end_date IS NOT NULL AND mission.enroll_end_date IS NOT NULL
+                   AND DATE(UTC_TIMESTAMP()) > DATE(mission.content_end_date)
+                   AND DATE(UTC_TIMESTAMP()) > DATE(mission.enroll_end_date) THEN 'end'
+                 ELSE 'opening_soon'
+               END AS computed_status,
+               CASE
+                 WHEN mission.select_date IS NULL OR DATE(UTC_TIMESTAMP()) < DATE(mission.select_date) THEN 'waiting'
+                 WHEN mission.select_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) = DATE(mission.select_date) THEN 'selection_date'
+                 WHEN mission.select_date IS NOT NULL AND mission.content_end_date IS NOT NULL
+                   AND DATE(UTC_TIMESTAMP()) > DATE(mission.select_date)
+                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.content_end_date)
+                   AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND mission_enroll.status = 'selected') > 0 THEN 'completed'
+                 WHEN mission.select_date IS NOT NULL AND mission.content_end_date IS NOT NULL
+                   AND DATE(UTC_TIMESTAMP()) > DATE(mission.select_date)
+                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.content_end_date)
+                   AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND mission_enroll.status = 'selected') = 0 THEN 'delayed'
+                 WHEN mission.content_end_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) > DATE(mission.content_end_date) THEN 'selection_deadline'
+                 ELSE 'waiting'
+               END AS computed_selection_status,
+               mission.category AS category,
+               mission.social AS social,
+               mission.region AS region,
+               mission.title AS title,
+               mission.brand AS brand,
+               mission.is_recommended AS isRecommended
+        FROM mission
+      ) AS mission_with_status
+    `;
+
     const conditions = [];
     const queryParams = [];
     const countParams = [];
 
-    // Status filter (Mission lifecycle)
+    // Status filter (Mission lifecycle) - using computed status
     if (filters.status) {
       const statuses = filters.status.split(',').map(s => s.trim());
-      const statusConditions = [];
-
-      statuses.forEach(status => {
-        switch (status) {
-          case 'opening_soon':
-            statusConditions.push('NOW() < mission.enroll_start_date');
-            break;
-          case 'applying':
-            statusConditions.push('NOW() BETWEEN mission.enroll_start_date AND mission.enroll_end_date');
-            break;
-          case 'application_deadline':
-            statusConditions.push('DATE(mission.select_date) = CURDATE()');
-            break;
-          case 'in_progress':
-            statusConditions.push('NOW() BETWEEN mission.mission_start_date AND mission.mission_end_date');
-            break;
-          case 'registration_deadline':
-            statusConditions.push('NOW() BETWEEN mission.content_start_date AND mission.content_end_date');
-            break;
-          case 'end':
-            statusConditions.push('NOW() > mission.content_end_date');
-            break;
-        }
-      });
-
-      if (statusConditions.length > 0) {
-        conditions.push(`(${statusConditions.join(' OR ')})`);
-      }
+      const placeholders = statuses.map(() => '?').join(',');
+      conditions.push(`mission_with_status.computed_status IN (${placeholders})`);
+      queryParams.push(...statuses);
+      countParams.push(...statuses);
     }
 
-    // Selection status filter
+    // Selection status filter - using computed selection status
     if (filters.selection_status) {
       const selectionStatuses = filters.selection_status.split(',').map(s => s.trim());
-      const selectionConditions = [];
-
-      selectionStatuses.forEach(status => {
-        switch (status) {
-          case 'waiting':
-            selectionConditions.push('(mission.select_date IS NULL OR NOW() < mission.select_date)');
-            break;
-          case 'selection_date':
-            selectionConditions.push('DATE(mission.select_date) = CURDATE()');
-            break;
-          case 'delayed':
-            selectionConditions.push(`(
-              NOW() > mission.select_date
-              AND NOW() < mission.content_end_date
-              AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND mission_enroll.status = 'selected') = 0
-            )`);
-            break;
-          case 'completed':
-            selectionConditions.push(`(
-              NOW() > mission.select_date
-              AND NOW() < mission.content_end_date
-              AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND mission_enroll.status = 'selected') > 0
-            )`);
-            break;
-          case 'selection_deadline':
-            selectionConditions.push('NOW() > mission.content_end_date');
-            break;
-        }
-      });
-
-      if (selectionConditions.length > 0) {
-        conditions.push(`(${selectionConditions.join(' OR ')})`);
-      }
+      const placeholders = selectionStatuses.map(() => '?').join(',');
+      conditions.push(`mission_with_status.computed_selection_status IN (${placeholders})`);
+      queryParams.push(...selectionStatuses);
+      countParams.push(...selectionStatuses);
     }
 
     // Region filter (simple IN clause)
     if (filters.region) {
       const regions = filters.region.split(',').map(r => r.trim());
       const placeholders = regions.map(() => '?').join(',');
-      conditions.push(`mission.region IN (${placeholders})`);
+      conditions.push(`mission_with_status.region IN (${placeholders})`);
       queryParams.push(...regions);
       countParams.push(...regions);
     }
@@ -537,7 +599,7 @@ export const GetMissionListByStatus = async (filters = {}) => {
     if (filters.category) {
       const categories = filters.category.split(',').map(c => c.trim());
       const placeholders = categories.map(() => '?').join(',');
-      conditions.push(`mission.category IN (${placeholders})`);
+      conditions.push(`mission_with_status.category IN (${placeholders})`);
       queryParams.push(...categories);
       countParams.push(...categories);
     }
@@ -545,7 +607,7 @@ export const GetMissionListByStatus = async (filters = {}) => {
     // Social filter (FIND_IN_SET for comma-separated values in DB)
     if (filters.social) {
       const socials = filters.social.split(',').map(s => s.trim());
-      const socialConditions = socials.map(() => 'FIND_IN_SET(?, mission.social) > 0');
+      const socialConditions = socials.map(() => 'FIND_IN_SET(?, mission_with_status.social) > 0');
       conditions.push(`(${socialConditions.join(' OR ')})`);
       queryParams.push(...socials);
       countParams.push(...socials);
@@ -553,13 +615,13 @@ export const GetMissionListByStatus = async (filters = {}) => {
 
     // Search filter
     if (filters.search) {
-      conditions.push('(mission.title LIKE ? OR mission.brand LIKE ?)');
+      conditions.push('(mission_with_status.title LIKE ? OR mission_with_status.brand LIKE ?)');
       queryParams.push(`%${filters.search}%`, `%${filters.search}%`);
       countParams.push(`%${filters.search}%`, `%${filters.search}%`);
     }
 
     if (filters.is_recommended !== undefined) {
-      conditions.push('mission.is_recommended = ?');
+      conditions.push('mission_with_status.isRecommended = ?');
       const isRecommended = filters.is_recommended === 'true' || filters.is_recommended === true ? 1 : 0;
       queryParams.push(isRecommended);
       countParams.push(isRecommended)
@@ -571,7 +633,7 @@ export const GetMissionListByStatus = async (filters = {}) => {
       countQuery += ' WHERE ' + conditions.join(' AND ');
     }
 
-    query += ' ORDER BY mission.id DESC LIMIT ? OFFSET ?';
+    query += ' ORDER BY mission_with_status.missionId DESC LIMIT ? OFFSET ?';
     queryParams.push(itemsPerPage, offset);
 
     const [totalResult] = await pool.query(countQuery, countParams);
@@ -639,14 +701,17 @@ export const UpdateRecommendedMission = async (missionId, isRecommended) => {
  * @description Get global mission statistics based on admin workflow
  * @returns {Promise<obj>} Statistics object with totalMissions, mustSelectToday, delayedEnrollments, and inProgress counts
  *
- * Admin Flow Mapping:
+ * Admin Flow Mapping (independent counts - missions can be counted in multiple categories):
  * - totalMissions: Total number of all missions
  * - mustSelectToday: "Application deadline" - missions where select_date is TODAY
- * - delayedEnrollments: Missions past select_date but no participants selected yet
- * - inProgress: "In Progress" + "Registration Deadline" - missions during mission/content periods
+ * - delayedEnrollments: Missions past select_date, before content deadline, with no participants selected yet
+ * - inProgress: "In Progress" + "Registration Deadline" - missions during mission/content periods (excluding enrollment period)
+ *
+ * Note: Counts are independent. A mission can be counted in both 'delayed' AND 'inProgress'.
  */
 export const GetMissionStatistics = async () => {
   try {
+    // Separate queries for safety and clarity - independent counts (no cascading)
     const [totalMissionsResult] = await pool.query(`
       SELECT COUNT(*) as count
       FROM mission
@@ -654,14 +719,23 @@ export const GetMissionStatistics = async () => {
 
     const [mustSelectTodayResult] = await pool.query(`
       SELECT COUNT(*) as count
-      FROM mission
-      WHERE DATE(select_date) = CURDATE()
+      FROM (
+        SELECT
+          CASE
+            WHEN select_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) = DATE(select_date) THEN 'mustSelectToday'
+            ELSE 'other'
+          END AS admin_status
+        FROM mission
+      ) AS mission_statuses
+      WHERE admin_status = 'mustSelectToday'
     `);
 
     const [delayedResult] = await pool.query(`
       SELECT COUNT(*) as count
       FROM mission
-      WHERE DATE(select_date) < CURDATE()
+      WHERE select_date IS NOT NULL AND content_end_date IS NOT NULL
+        AND DATE(UTC_TIMESTAMP()) > DATE(select_date)
+        AND DATE(UTC_TIMESTAMP()) <= DATE(content_end_date)
         AND (SELECT COUNT(*)
              FROM mission_enroll
              WHERE mission_enroll.mission_id = mission.id
@@ -671,8 +745,14 @@ export const GetMissionStatistics = async () => {
     const [inProgressResult] = await pool.query(`
       SELECT COUNT(*) as count
       FROM mission
-      WHERE (CURDATE() BETWEEN DATE(mission_start_date) AND DATE(mission_end_date))
-         OR (CURDATE() BETWEEN DATE(content_start_date) AND DATE(content_end_date))
+      WHERE (enroll_start_date IS NULL OR enroll_end_date IS NULL
+            OR DATE(UTC_TIMESTAMP()) NOT BETWEEN DATE(enroll_start_date) AND DATE(enroll_end_date))
+        AND ((mission_start_date IS NOT NULL AND mission_end_date IS NOT NULL
+              AND DATE(UTC_TIMESTAMP()) >= DATE(mission_start_date)
+              AND DATE(UTC_TIMESTAMP()) <= DATE(mission_end_date))
+          OR (content_start_date IS NOT NULL AND content_end_date IS NOT NULL
+              AND DATE(UTC_TIMESTAMP()) >= DATE(content_start_date)
+              AND DATE(UTC_TIMESTAMP()) <= DATE(content_end_date)))
     `);
 
     return {
@@ -693,27 +773,88 @@ export const GetMissionStatistics = async () => {
  */
 export const GetMissionFilterCounts = async () => {
   try {
-    // Status counts
+    // Status counts - mirroring frontend cascading priority logic
     const [statusCounts] = await pool.query(`
       SELECT
-        SUM(CASE WHEN NOW() < enroll_start_date THEN 1 ELSE 0 END) AS opening_soon,
-        SUM(CASE WHEN NOW() BETWEEN enroll_start_date AND enroll_end_date THEN 1 ELSE 0 END) AS applying,
-        SUM(CASE WHEN DATE(select_date) = CURDATE() THEN 1 ELSE 0 END) AS application_deadline,
-        SUM(CASE WHEN NOW() BETWEEN mission_start_date AND mission_end_date THEN 1 ELSE 0 END) AS in_progress,
-        SUM(CASE WHEN NOW() BETWEEN content_start_date AND content_end_date THEN 1 ELSE 0 END) AS registration_deadline,
-        SUM(CASE WHEN NOW() > content_end_date THEN 1 ELSE 0 END) AS end_count
-      FROM mission
+        SUM(CASE WHEN status = 'opening_soon' THEN 1 ELSE 0 END) AS opening_soon,
+        SUM(CASE WHEN status = 'applying' THEN 1 ELSE 0 END) AS applying,
+        SUM(CASE WHEN status = 'application_deadline' THEN 1 ELSE 0 END) AS application_deadline,
+        SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress,
+        SUM(CASE WHEN status = 'registration_deadline' THEN 1 ELSE 0 END) AS registration_deadline,
+        SUM(CASE WHEN status = 'end_count' THEN 1 ELSE 0 END) AS end_count
+      FROM (
+        SELECT
+          CASE
+            -- Priority 1: 오픈예정 (Opening Soon)
+            WHEN enroll_start_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) < DATE(enroll_start_date) THEN 'opening_soon'
+
+            -- Priority 2: 신청중 (Applying)
+            WHEN enroll_start_date IS NOT NULL AND enroll_end_date IS NOT NULL
+              AND DATE(UTC_TIMESTAMP()) >= DATE(enroll_start_date)
+              AND DATE(UTC_TIMESTAMP()) <= DATE(enroll_end_date) THEN 'applying'
+
+            -- Priority 3: 신청마감 (Application Deadline)
+            WHEN select_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) = DATE(select_date) THEN 'application_deadline'
+
+            -- Priority 4: 진행중 (In Progress)
+            WHEN mission_start_date IS NOT NULL AND mission_end_date IS NOT NULL
+              AND DATE(UTC_TIMESTAMP()) >= DATE(mission_start_date)
+              AND DATE(UTC_TIMESTAMP()) <= DATE(mission_end_date) THEN 'in_progress'
+
+            -- Priority 5: 등록마감 (Registration Deadline)
+            WHEN content_start_date IS NOT NULL AND content_end_date IS NOT NULL
+              AND DATE(UTC_TIMESTAMP()) >= DATE(content_start_date)
+              AND DATE(UTC_TIMESTAMP()) <= DATE(content_end_date) THEN 'registration_deadline'
+
+            -- Priority 6: 종료 (Ended)
+            WHEN content_end_date IS NOT NULL AND enroll_end_date IS NOT NULL
+              AND DATE(UTC_TIMESTAMP()) > DATE(content_end_date)
+              AND DATE(UTC_TIMESTAMP()) > DATE(enroll_end_date) THEN 'end_count'
+
+            -- Default: 오픈예정 (Opening Soon)
+            ELSE 'opening_soon'
+          END AS status
+        FROM mission
+      ) AS mission_statuses
     `);
 
-    // Selection status counts
+    // Selection status counts - using mutually exclusive cascading priority logic
     const [selectionStatusCounts] = await pool.query(`
       SELECT
-        SUM(CASE WHEN select_date IS NULL OR NOW() < select_date THEN 1 ELSE 0 END) AS waiting,
-        SUM(CASE WHEN DATE(select_date) = CURDATE() THEN 1 ELSE 0 END) AS selection_date,
-        SUM(CASE WHEN NOW() > select_date AND NOW() < content_end_date AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND mission_enroll.status = 'selected') = 0 THEN 1 ELSE 0 END) AS \`delayed\`,
-        SUM(CASE WHEN NOW() > select_date AND NOW() < content_end_date AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND mission_enroll.status = 'selected') > 0 THEN 1 ELSE 0 END) AS completed,
-        SUM(CASE WHEN NOW() > content_end_date THEN 1 ELSE 0 END) AS selection_deadline
-      FROM mission
+        SUM(CASE WHEN selection_status = 'waiting' THEN 1 ELSE 0 END) AS waiting,
+        SUM(CASE WHEN selection_status = 'selection_date' THEN 1 ELSE 0 END) AS selection_date,
+        SUM(CASE WHEN selection_status = 'delayed' THEN 1 ELSE 0 END) AS \`delayed\`,
+        SUM(CASE WHEN selection_status = 'completed' THEN 1 ELSE 0 END) AS completed,
+        SUM(CASE WHEN selection_status = 'selection_deadline' THEN 1 ELSE 0 END) AS selection_deadline
+      FROM (
+        SELECT
+          CASE
+            -- Priority 1: Waiting for selection (no date set or before selection date)
+            WHEN select_date IS NULL OR DATE(UTC_TIMESTAMP()) < DATE(select_date) THEN 'waiting'
+
+            -- Priority 2: Selection date is today
+            WHEN select_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) = DATE(select_date) THEN 'selection_date'
+
+            -- Priority 3: After selection, before content deadline, with selected participants (completed)
+            WHEN select_date IS NOT NULL AND content_end_date IS NOT NULL
+              AND DATE(UTC_TIMESTAMP()) > DATE(select_date)
+              AND DATE(UTC_TIMESTAMP()) <= DATE(content_end_date)
+              AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND mission_enroll.status = 'selected') > 0 THEN 'completed'
+
+            -- Priority 4: After selection, before content deadline, no selected participants (delayed)
+            WHEN select_date IS NOT NULL AND content_end_date IS NOT NULL
+              AND DATE(UTC_TIMESTAMP()) > DATE(select_date)
+              AND DATE(UTC_TIMESTAMP()) <= DATE(content_end_date)
+              AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND mission_enroll.status = 'selected') = 0 THEN 'delayed'
+
+            -- Priority 5: After content deadline
+            WHEN content_end_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) > DATE(content_end_date) THEN 'selection_deadline'
+
+            -- Default: waiting
+            ELSE 'waiting'
+          END AS selection_status
+        FROM mission
+      ) AS mission_selection_statuses
     `);
 
     // Region counts

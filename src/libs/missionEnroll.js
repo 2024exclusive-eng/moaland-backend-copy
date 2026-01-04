@@ -21,9 +21,38 @@ export const CheckUserMissionEnroll = async (missionId, userId) => {
 };
 
 /**
+ * @function GetUserMissionEnroll
+ * @param {number} missionId
+ * @param {number} userId
+ * @returns {Promise(obj | null)} Enrollment details or null if not enrolled
+ */
+export const GetUserMissionEnroll = async (missionId, userId) => {
+  try {
+    const [result] = await pool.query(
+      `SELECT
+         id AS enrollId,
+         mission_id AS missionId,
+         user_id AS userId,
+         name,
+         status,
+         link,
+         link_updated AS linkUpdated,
+         created
+       FROM mission_enroll
+       WHERE mission_id = ? AND user_id = ?`,
+      [missionId, userId]
+    );
+
+    return result.length > 0 ? result[0] : null;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
  * @function GetMissionEnrollCount
  * @param {obj}
- * @returns {Promise([obj] | null)} 
+ * @returns {Promise([obj] | null)}
  */
 export const GetMissionEnrollCount = async (missionId) => {
   try {
@@ -46,23 +75,39 @@ export const GetMissionListByUserId = async ({ page, item, type, userId }) => {
     const currentPage = page ? parseInt(page) : 1;
     const offset = (currentPage - 1) * itemsPerPage;
 
-    type = type === "" ? "selected" : type;
+    // Default to 'selected' if no type provided
+    type = type === "" || !type ? "selected" : type;
 
     let statusCondition;
     let additionalCondition = '';
     let queryParams;
     let countParams;
 
-    if (type === "completed") {
-      statusCondition = `(mission_enroll.status = 'completed' OR mission_enroll.status = 'point')`;
+    if (type === "applied") {
+      // User has applied but not yet selected
+      statusCondition = `mission_enroll.status = 'applied'`;
+      queryParams = [userId, itemsPerPage, offset];
+      countParams = [userId];
+    } else if (type === "selected") {
+      // User has been selected but hasn't submitted content yet
+      statusCondition = `mission_enroll.status = 'selected'`;
+      additionalCondition = ` AND mission_enroll.link IS NULL`;
+      queryParams = [userId, itemsPerPage, offset];
+      countParams = [userId];
+    } else if (type === "registered") {
+      // User has submitted content link but not yet completed/rewarded
+      statusCondition = `mission_enroll.link IS NOT NULL`;
+      additionalCondition = ` AND mission_enroll.status NOT IN ('completed', 'rewarded')`;
       queryParams = [userId, itemsPerPage, offset];
       countParams = [userId];
     } else if (type === "ended") {
-      statusCondition = `1=1`;
-      additionalCondition = ` AND mission.mission_end_date < NOW()`;
+      // Mission ended (content_end_date passed) OR status is completed/rewarded
+      // Falls back to enroll_end_date when content_end_date is NULL
+      statusCondition = `(mission_enroll.status IN ('completed', 'rewarded') OR (mission.content_end_date IS NOT NULL AND mission.content_end_date < UTC_TIMESTAMP()) OR (mission.content_end_date IS NULL AND mission.enroll_end_date < UTC_TIMESTAMP()))`;
       queryParams = [userId, itemsPerPage, offset];
       countParams = [userId];
     } else {
+      // Fallback: direct status match for any other status
       statusCondition = `mission_enroll.status = ?`;
       queryParams = [userId, type, itemsPerPage, offset];
       countParams = [userId, type];
@@ -89,17 +134,25 @@ export const GetMissionListByUserId = async ({ page, item, type, userId }) => {
               mission.payment_date AS paymentDate,
               mission.mission_start_date AS missionStartDate,
               mission.mission_end_date AS missionEndDate,
+              mission.content_start_date AS contentStartDate,
+              mission.content_end_date AS contentEndDate,
               mission.social AS social,
               mission.point AS point,
               mission.max_enroll AS maxEnroll,
               mission.brand AS brand,
               mission.title AS title,
               mission.thumbnail_img AS thumbnailImg,
+              mission.goods_contents AS goodsContents,
               mission_enroll.id AS enrollId,
               mission_enroll.name AS userName,
               mission_enroll.status AS status,
               mission_enroll.link AS link,
               mission_enroll.link_updated AS linkUpdated,
+              mission_enroll.visit_datetime_start AS visitDatetimeStart,
+              mission_enroll.visit_datetime_end AS visitDatetimeEnd,
+              mission_enroll.instagram_link AS instagramLink,
+              mission_enroll.wechat_id AS wechatId,
+              mission_enroll.memo AS memo,
               mission_enroll.created AS created,
               (SELECT COUNT(*)
                FROM mission_enroll AS me
@@ -178,15 +231,18 @@ export const DeleteMissionEnroll = async (missionId, userId) => {
  * @param {number} userId
  * @param {object} links - JSON object with platform URLs: {Xiaohongshu: "url", Instagram: "url"}
  * @returns {Promise([obj] | null)}
+ * @description Updates content links without changing status.
+ *              Status flow: selected -> (link submitted) -> admin marks as completed/rewarded
  */
 export const UpdateMissionContent = async ({ missionId, userId, links }) => {
   try {
     const linksJson = JSON.stringify(links);
 
+    // Only update link, don't change status (admin will mark as completed later)
     const result = await pool.query(
       `UPDATE mission_enroll
-       SET link = ?, link_updated = NOW(), status = 'completed'
-       WHERE mission_id = ? AND user_id = ? AND status IN ('applied', 'selected')`,
+       SET link = ?, link_updated = NOW()
+       WHERE mission_id = ? AND user_id = ? AND status = 'selected'`,
       [linksJson, missionId, userId]
     );
 
@@ -217,6 +273,8 @@ export const GetUsersByMissionId = async (missionId) => {
               mission_enroll.link_updated AS linkUpdated,
               mission_enroll.created,
               user.email,
+              user.deleted,
+              user.is_delete,
               user.link AS userLink,
               user.oauth_type AS oauthType
        FROM mission_enroll

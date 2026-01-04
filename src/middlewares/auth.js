@@ -17,6 +17,7 @@ export default async (req, res, next) => {
 };
 
 export const LoginCheck = async (req, res, next) => {
+  console.log(req)
   if (!req.decoded) return res.status(403).json({ success: false, msg: 'Permission Denided' });
   next();
 };

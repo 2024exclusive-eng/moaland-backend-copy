@@ -83,23 +83,33 @@ export const ModifyMyProfile = async (req, res, next) => {
       profileBackgroundImage,
       isButton,
       buttonText,
-      buttonUrl
+      buttonUrl,
+      email
     } = req.body;
 
     // 유효성 검사
-    if (isEmpty(name)) return res.status(200).json({ success: false, error: EC('NEED_TITLE') });
+    // if (isEmpty(name)) return res.status(200).json({ success: false, error: EC('NEED_TITLE') });
 
-    if (layout === 'LAYOUT_BASIC' || layout === 'LAYOUT_BLUR') {
-      if (isEmpty(profileImg)) return res.status(200).json({ success: false, error: EC('NEED_PROFILE_IMAGE') });
-    }
+    // if (layout === 'LAYOUT_BASIC' || layout === 'LAYOUT_BLUR') {
+    //   if (isEmpty(profileImg)) return res.status(200).json({ success: false, error: EC('NEED_PROFILE_IMAGE') });
+    // }
 
-    if (layout === 'LAYOUT_BLUR' || layout === 'LAYOUT_BLUR_NONE_PROFILE') {
-      if (isEmpty(profileBackgroundImage)) return res.status(200).json({ success: false, error: EC('NEED_PROFILE_BACKGROUND_IMAGE') });
-    }
+    // if (layout === 'LAYOUT_BLUR' || layout === 'LAYOUT_BLUR_NONE_PROFILE') {
+    //   if (isEmpty(profileBackgroundImage)) return res.status(200).json({ success: false, error: EC('NEED_PROFILE_BACKGROUND_IMAGE') });
+    // }
 
-    if (isButton === 'Y') {
-      if (isEmpty(buttonText)) return res.status(200).json({ success: false, error: EC('NEED_PROFILE_BUTTON_TEXT') });
-      if (isEmpty(buttonUrl)) return res.status(200).json({ success: false, error: EC('NEED_PROFILE_BUTTON_URL') });
+    // if (isButton === 'Y') {
+    //   if (isEmpty(buttonText)) return res.status(200).json({ success: false, error: EC('NEED_PROFILE_BUTTON_TEXT') });
+    //   if (isEmpty(buttonUrl)) return res.status(200).json({ success: false, error: EC('NEED_PROFILE_BUTTON_URL') });
+    // }
+
+    // 이메일 변경 시 중복 확인
+    if (!isEmpty(email)) {
+      const existingUser = await User.GetUserOneByEmail(email);
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(200).json({ success: false, error: EC('DUPLICATED_EMAIL') });
+      }
+      await User.UpdateUserEmail(null, { userId, email });
     }
 
     // 프로필 업데이트

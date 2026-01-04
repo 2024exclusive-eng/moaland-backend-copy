@@ -8,6 +8,7 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_DATABASE,
   connectionLimit: 30,
+  timezone: 'Z', // Force UTC timezone for all date operations
 });
 
 export default pool.promise();

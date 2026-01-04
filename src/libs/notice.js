@@ -2,24 +2,43 @@ import pool from '../utils/pool.js';
 
 /**
  * @function GetNotice
- * @param {obj}
+ * @param {obj} filters - page, item, title
  * @returns {Promise([obj] | null)} {noticeData, Paging}
  */
-export const GetNotice = async paging => {
+export const GetNotice = async filters => {
   try {
-    const itemsPerPage = Number(paging?.item ? paging.item : 30);
-    const currentPage = paging?.page ? parseInt(paging.page) : 1;
+    const itemsPerPage = Number(filters?.item ? filters.item : 30);
+    const currentPage = filters?.page ? parseInt(filters.page) : 1;
     const offset = (currentPage - 1) * itemsPerPage;
 
-    const [totalResult] = await pool.query(`SELECT count(id) AS total FROM notice`);
+    let query = `SELECT notice.id, notice.title, notice.contents, notice.created FROM notice`;
+    const queryParams = [];
+    const conditions = [];
+
+    // title search filter
+    if (filters?.title) {
+      conditions.push('title LIKE ?');
+      queryParams.push(`%${filters.title}%`);
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    query += ' ORDER BY id DESC LIMIT ? OFFSET ?';
+    queryParams.push(itemsPerPage, offset);
+
+    // Count query
+    let countQuery = 'SELECT COUNT(id) AS total FROM notice';
+    if (conditions.length > 0) {
+      countQuery += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    const [totalResult] = await pool.query(countQuery, queryParams.slice(0, queryParams.length - 2));
     const totalItems = totalResult[0].total;
     const totalPages = Math.ceil(totalItems / itemsPerPage);
 
-    const [data] = await pool.query(
-      `SELECT notice.id, notice.title, notice.contents, notice.created FROM notice
-      ORDER BY id DESC LIMIT ? OFFSET ?`,
-      [itemsPerPage, offset],
-    );
+    const [data] = await pool.query(query, queryParams);
 
     return {
       data,

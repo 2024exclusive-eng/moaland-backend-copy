@@ -9,8 +9,8 @@ import * as Faq from '../../libs/faq.js';
  */
 export const GetFaqList = async (req, res, next) => {
   try {
-    const { page, item, type, is_active } = req.query;
-    const data = await Faq.GetFaqList({ page, item, type, is_active });
+    const { page, item, type, is_active, title } = req.query;
+    const data = await Faq.GetFaqList({ page, item, type, is_active, title });
 
     return res.status(200).json({ success: true, data });
   } catch (e) {

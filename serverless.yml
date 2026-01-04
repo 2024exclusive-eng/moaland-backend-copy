@@ -7,6 +7,19 @@ provider:
   stage: ${opt:stage, 'staging'}
   region: ap-southeast-1
   deploymentBucket: k-viewo
+  apiGateway:
+    binaryMediaTypes:
+      - 'multipart/form-data'
+      - 'image/*'
+      - 'application/octet-stream'
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:PutObjectAcl
+          Resource: "arn:aws:s3:::*/*"
 
 package:
   exclude:

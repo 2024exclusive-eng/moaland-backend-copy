@@ -2,7 +2,7 @@ import pool from '../utils/pool.js';
 
 /**
  * @function GetFaqList
- * @param {obj} filters - type, page, item, is_active
+ * @param {obj} filters - type, page, item, is_active, title
  * @returns {Promise([obj] | null)} {data, paging}
  */
 export const GetFaqList = async filters => {
@@ -25,6 +25,12 @@ export const GetFaqList = async filters => {
     if (filters.is_active) {
       conditions.push('is_active = ?');
       queryParams.push(filters.is_active);
+    }
+
+    // title search filter
+    if (filters.title) {
+      conditions.push('title LIKE ?');
+      queryParams.push(`%${filters.title}%`);
     }
 
     if (conditions.length > 0) {
