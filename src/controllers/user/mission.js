@@ -87,13 +87,17 @@ export const EnrollMission = async (req, res, next) => {
     if (enrollCount >= missionDetail.maxEnroll)
       return res.status(200).json({ success: false, error: EC('MISSION_MAX_ENROLL_REACHED') });
 
-    // 2. 미션이 시작 전인지 확인
+    // 2. 미션이 시작 전인지 확인 (날짜만 비교하여 당일 전체 가능)
     const currentDate = new Date();
-    if (currentDate < new Date(missionDetail.enrollStartDate))
+    const currentDateOnly = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+    const enrollStartDateOnly = new Date(new Date(missionDetail.enrollStartDate).setHours(0, 0, 0, 0));
+    const enrollEndDateOnly = new Date(new Date(missionDetail.enrollEndDate).setHours(23, 59, 59, 999));
+
+    if (currentDateOnly < enrollStartDateOnly)
       return res.status(200).json({ success: false, error: EC('MISSION_ALREADY_STARTED') });
 
-    // 3. 미션이 종료되지 않았는지 확인
-    if (currentDate > new Date(missionDetail.enrollEndDate))
+    // 3. 미션이 종료되지 않았는지 확인 (종료일 23:59:59까지 가능)
+    if (currentDate > enrollEndDateOnly)
       return res.status(200).json({ success: false, error: EC('MISSION_ALREADY_ENDED') });
 
     // 미션 신청 등록 (mission_enroll 테이블에 row 생성)
@@ -263,15 +267,22 @@ export const PostMissionContents = async (req, res, next) => {
 
 /**
  * @function isValidUrl
- * @description Validate URL format
- * @param {string} url
+ * @description Validate URL format - accepts full URLs or domain patterns
+ * @param {string} url - Can be "https://google.com" or "google.com"
  * @returns {boolean}
  */
 function isValidUrl(url) {
   try {
+    // Try validating as-is first (for full URLs with protocol)
     new URL(url);
     return true;
   } catch {
-    return false;
+    // If that fails, try prepending https:// (for domain patterns like "google.com")
+    try {
+      new URL(`https://${url}`);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }

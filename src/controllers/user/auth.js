@@ -180,8 +180,21 @@ export const VerifyEmail = async (req, res, next) => {
   try {
     const { email } = req.body;
 
+    // Check if email is provided
+    if (isEmpty(email)) {
+      return res.status(200).json({ success: false, error: EC('NEED_EMAIL') });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(200).json({ success: false, error: EC('INVALID_EMAIL') });
+    }
+
+    // Check if email already exists
     const existUser = await User.GetUserOneByEmail(email);
     if (existUser) return res.status(200).json({ success: false, error: EC('DUPLICATED_EMAIL') });
+
     const verify = await SendVerificationCode(email);
 
     return res.status(200).json({ success: true, verify });
@@ -311,34 +324,29 @@ export const FindPw = async (req, res, next) => {
  * @returns {obj}
  */
 export const ChangeAccount = async (req, res, next) => {
+  let conn = null;
   try {
-    let conn = null;
-    try {
-      const userId = req.decoded.id;
-      const { account, depositor } = req.body;
+    const userId = req.decoded.id;
+    const { account, depositor } = req.body;
 
-      // 계좌 & 예금주 입력 확인
-      if (isEmpty(account)) return res.status(200).json({ success: false, error: EC('NEED_ACCOUNT') });
-      if (isEmpty(depositor)) return res.status(200).json({ success: false, error: EC('NEED_DEPOSITOR') });
+    // 계좌 & 예금주 입력 확인
+    if (isEmpty(account)) return res.status(200).json({ success: false, error: EC('NEED_ACCOUNT') });
+    if (isEmpty(depositor)) return res.status(200).json({ success: false, error: EC('NEED_DEPOSITOR') });
 
-      // 트랜젝션 시작
-      conn = await pool.getConnection();
-      await conn.beginTransaction();
+    // 트랜젝션 시작
+    conn = await pool.getConnection();
+    await conn.beginTransaction();
 
-      await User.UpdateUserAccount(conn, { userId, account, depositor })
+    await User.UpdateUserAccount(conn, { userId, account, depositor })
 
-      // 트랜젝션 커밋
-      await conn.commit();
-      return res.status(200).json({ success: true });
-    } catch (e) {
-      if (conn) await conn.rollback();
-      return next(e);
-    } finally {
-      if (conn) conn.release();
-    }
+    // 트랜젝션 커밋
+    await conn.commit();
     return res.status(200).json({ success: true });
   } catch (e) {
+    if (conn) await conn.rollback();
     return next(e);
+  } finally {
+    if (conn) conn.release();
   }
 };
 

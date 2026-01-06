@@ -6,6 +6,9 @@ const ERROR = {
   NO_USER_BY_EMAIL: { code: 1004, msg: '가입된 이메일이 없습니다.' },
   NOT_MATCH_LOGIN_INFO: { code: 1005, msg: '이메일이나 비밀번호가 일치하지 않습니다.' },
 
+  NEED_EMAIL: { code: 1006, msg: '이메일을 입력해주세요.' },
+  INVALID_EMAIL: { code: 1007, msg: '올바른 이메일 형식이 아닙니다.' },
+
   NEED_PASSWORD: { code: 1010, msg: '비밀번호를 입력해주세요.' },
   NEED_LINK: { code: 1011, msg: '링크를 입력해주세요.' },
   DUPLICATED_LINK: { code: 1012, msg: '이미 등록된 링크입니다.' },
