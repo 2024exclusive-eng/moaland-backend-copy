@@ -482,6 +482,10 @@ export const GetMissionListByStatus = async (filters = {}) => {
                 FROM mission_enroll
                 WHERE mission_enroll.mission_id = mission.id
                   AND (mission_enroll.status = 'selected' OR mission_enroll.status = 'completed')) AS selectedParticipantCount,
+               (SELECT COUNT(DISTINCT mission_enroll.id)
+                FROM mission_enroll
+                WHERE mission_enroll.mission_id = mission.id
+                  AND mission_enroll.status = 'applied') AS appliedParticipantCount,
                CASE
                  WHEN mission.enroll_start_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) < DATE(mission.enroll_start_date) THEN 'opening_soon'
                  WHEN mission.enroll_start_date IS NOT NULL AND mission.enroll_end_date IS NOT NULL
@@ -500,18 +504,15 @@ export const GetMissionListByStatus = async (filters = {}) => {
                  ELSE 'opening_soon'
                END AS computed_status,
                CASE
-                 WHEN mission.select_date IS NULL OR DATE(UTC_TIMESTAMP()) < DATE(mission.select_date) THEN 'waiting'
-                 WHEN mission.select_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) = DATE(mission.select_date) THEN 'selection_date'
-                 WHEN mission.select_date IS NOT NULL AND mission.content_end_date IS NOT NULL
-                   AND DATE(UTC_TIMESTAMP()) > DATE(mission.select_date)
-                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.content_end_date)
-                   AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND mission_enroll.status = 'selected') > 0 THEN 'completed'
-                 WHEN mission.select_date IS NOT NULL AND mission.content_end_date IS NOT NULL
-                   AND DATE(UTC_TIMESTAMP()) > DATE(mission.select_date)
-                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.content_end_date)
-                   AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND mission_enroll.status = 'selected') = 0 THEN 'delayed'
-                 WHEN mission.content_end_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) > DATE(mission.content_end_date) THEN 'selection_deadline'
-                 ELSE 'waiting'
+                 WHEN (SELECT COUNT(*) FROM mission_enroll me
+                        WHERE me.mission_id = mission.id
+                          AND me.status IN ('selected','completed','rewarded')) = 0
+                   THEN 'waiting'
+                 WHEN (SELECT COUNT(*) FROM mission_enroll me
+                        WHERE me.mission_id = mission.id
+                          AND me.status = 'applied') = 0
+                   THEN 'completed'
+                 ELSE 'in_selection'
                END AS computed_selection_status
         FROM mission
       ) AS mission_with_status
@@ -541,18 +542,15 @@ export const GetMissionListByStatus = async (filters = {}) => {
                  ELSE 'opening_soon'
                END AS computed_status,
                CASE
-                 WHEN mission.select_date IS NULL OR DATE(UTC_TIMESTAMP()) < DATE(mission.select_date) THEN 'waiting'
-                 WHEN mission.select_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) = DATE(mission.select_date) THEN 'selection_date'
-                 WHEN mission.select_date IS NOT NULL AND mission.content_end_date IS NOT NULL
-                   AND DATE(UTC_TIMESTAMP()) > DATE(mission.select_date)
-                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.content_end_date)
-                   AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND mission_enroll.status = 'selected') > 0 THEN 'completed'
-                 WHEN mission.select_date IS NOT NULL AND mission.content_end_date IS NOT NULL
-                   AND DATE(UTC_TIMESTAMP()) > DATE(mission.select_date)
-                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.content_end_date)
-                   AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND mission_enroll.status = 'selected') = 0 THEN 'delayed'
-                 WHEN mission.content_end_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) > DATE(mission.content_end_date) THEN 'selection_deadline'
-                 ELSE 'waiting'
+                 WHEN (SELECT COUNT(*) FROM mission_enroll me
+                        WHERE me.mission_id = mission.id
+                          AND me.status IN ('selected','completed','rewarded')) = 0
+                   THEN 'waiting'
+                 WHEN (SELECT COUNT(*) FROM mission_enroll me
+                        WHERE me.mission_id = mission.id
+                          AND me.status = 'applied') = 0
+                   THEN 'completed'
+                 ELSE 'in_selection'
                END AS computed_selection_status,
                mission.category AS category,
                mission.social AS social,
@@ -818,40 +816,24 @@ export const GetMissionFilterCounts = async () => {
       ) AS mission_statuses
     `);
 
-    // Selection status counts - using mutually exclusive cascading priority logic
+    // Selection status counts - based on applicant selection headcount
     const [selectionStatusCounts] = await pool.query(`
       SELECT
         SUM(CASE WHEN selection_status = 'waiting' THEN 1 ELSE 0 END) AS waiting,
-        SUM(CASE WHEN selection_status = 'selection_date' THEN 1 ELSE 0 END) AS selection_date,
-        SUM(CASE WHEN selection_status = 'delayed' THEN 1 ELSE 0 END) AS \`delayed\`,
-        SUM(CASE WHEN selection_status = 'completed' THEN 1 ELSE 0 END) AS completed,
-        SUM(CASE WHEN selection_status = 'selection_deadline' THEN 1 ELSE 0 END) AS selection_deadline
+        SUM(CASE WHEN selection_status = 'in_selection' THEN 1 ELSE 0 END) AS in_selection,
+        SUM(CASE WHEN selection_status = 'completed' THEN 1 ELSE 0 END) AS completed
       FROM (
         SELECT
           CASE
-            -- Priority 1: Waiting for selection (no date set or before selection date)
-            WHEN select_date IS NULL OR DATE(UTC_TIMESTAMP()) < DATE(select_date) THEN 'waiting'
-
-            -- Priority 2: Selection date is today
-            WHEN select_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) = DATE(select_date) THEN 'selection_date'
-
-            -- Priority 3: After selection, before content deadline, with selected participants (completed)
-            WHEN select_date IS NOT NULL AND content_end_date IS NOT NULL
-              AND DATE(UTC_TIMESTAMP()) > DATE(select_date)
-              AND DATE(UTC_TIMESTAMP()) <= DATE(content_end_date)
-              AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND mission_enroll.status = 'selected') > 0 THEN 'completed'
-
-            -- Priority 4: After selection, before content deadline, no selected participants (delayed)
-            WHEN select_date IS NOT NULL AND content_end_date IS NOT NULL
-              AND DATE(UTC_TIMESTAMP()) > DATE(select_date)
-              AND DATE(UTC_TIMESTAMP()) <= DATE(content_end_date)
-              AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND mission_enroll.status = 'selected') = 0 THEN 'delayed'
-
-            -- Priority 5: After content deadline
-            WHEN content_end_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) > DATE(content_end_date) THEN 'selection_deadline'
-
-            -- Default: waiting
-            ELSE 'waiting'
+            WHEN (SELECT COUNT(*) FROM mission_enroll me
+                   WHERE me.mission_id = mission.id
+                     AND me.status IN ('selected','completed','rewarded')) = 0
+              THEN 'waiting'
+            WHEN (SELECT COUNT(*) FROM mission_enroll me
+                   WHERE me.mission_id = mission.id
+                     AND me.status = 'applied') = 0
+              THEN 'completed'
+            ELSE 'in_selection'
           END AS selection_status
         FROM mission
       ) AS mission_selection_statuses
@@ -909,10 +891,8 @@ export const GetMissionFilterCounts = async () => {
       },
       selection_status: {
         waiting: selectionStatusCounts[0].waiting || 0,
-        selection_date: selectionStatusCounts[0].selection_date || 0,
-        delayed: selectionStatusCounts[0].delayed || 0,
+        in_selection: selectionStatusCounts[0].in_selection || 0,
         completed: selectionStatusCounts[0].completed || 0,
-        selection_deadline: selectionStatusCounts[0].selection_deadline || 0,
       },
       region: regionCountsObj,
       category: categoryCountsObj,
