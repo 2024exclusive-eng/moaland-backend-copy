@@ -481,7 +481,7 @@ export const GetMissionListByStatus = async (filters = {}) => {
                (SELECT COUNT(DISTINCT mission_enroll.id)
                 FROM mission_enroll
                 WHERE mission_enroll.mission_id = mission.id
-                  AND (mission_enroll.status = 'selected' OR mission_enroll.status = 'completed')) AS selectedParticipantCount,
+                  AND mission_enroll.status IN ('selected', 'completed', 'rewarded')) AS selectedParticipantCount,
                (SELECT COUNT(DISTINCT mission_enroll.id)
                 FROM mission_enroll
                 WHERE mission_enroll.mission_id = mission.id
