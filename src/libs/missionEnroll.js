@@ -100,6 +100,11 @@ export const GetMissionListByUserId = async ({ page, item, type, userId }) => {
       additionalCondition = ` AND mission_enroll.status NOT IN ('completed', 'rewarded')`;
       queryParams = [userId, itemsPerPage, offset];
       countParams = [userId];
+    } else if (type === "rejected") {
+      // User's application was rejected by admin
+      statusCondition = `mission_enroll.status = 'rejected'`;
+      queryParams = [userId, itemsPerPage, offset];
+      countParams = [userId];
     } else if (type === "ended") {
       // Mission ended (content_end_date passed) OR status is completed/rewarded
       // Falls back to enroll_end_date when content_end_date is NULL

@@ -69,13 +69,14 @@ export const GetMissionDetail = async (req, res, next) => {
       }
       acc[user.status].push(user);
       return acc;
-    }, { applied: [], selected: [], completed: [] });
+    }, { applied: [], selected: [], completed: [], rejected: [] });
 
     const enrollUsers = enrollUsersByStatus.applied;
     const selectUsers = enrollUsersByStatus.selected;
     const completeUsers = enrollUsersByStatus.completed;
+    const rejectUsers = enrollUsersByStatus.rejected;
 
-    return res.status(200).json({ success: true, mission, enrollUsers, selectUsers, completeUsers });
+    return res.status(200).json({ success: true, mission, enrollUsers, selectUsers, completeUsers, rejectUsers });
   } catch (e) {
     return next(e);
   }
