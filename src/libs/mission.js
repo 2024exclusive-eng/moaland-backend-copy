@@ -701,8 +701,8 @@ export const UpdateRecommendedMission = async (missionId, isRecommended) => {
  *
  * Admin Flow Mapping (independent counts - missions can be counted in multiple categories):
  * - totalMissions: Total number of all missions
- * - mustSelectToday: "Application deadline" - missions where select_date is TODAY
- * - delayedEnrollments: Missions past select_date, before content deadline, with no participants selected yet
+ * - mustSelectToday: "선정 필요" - missions whose enrollment ended and still have pending (applied) applicants to judge (headcount-based; select_date abandoned)
+ * - delayedEnrollments: "선정 지연" - missions whose enrollment ended with applicants but zero selected yet (headcount-based)
  * - inProgress: "In Progress" + "Registration Deadline" - missions during mission/content periods (excluding enrollment period)
  *
  * Note: Counts are independent. A mission can be counted in both 'delayed' AND 'inProgress'.
@@ -715,29 +715,32 @@ export const GetMissionStatistics = async () => {
       FROM mission
     `);
 
+    // "선정 필요": 신청기간이 끝났는데 아직 판단(선정/반려) 안 된 신청자(applied)가 남은 미션
     const [mustSelectTodayResult] = await pool.query(`
       SELECT COUNT(*) as count
-      FROM (
-        SELECT
-          CASE
-            WHEN select_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) = DATE(select_date) THEN 'mustSelectToday'
-            ELSE 'other'
-          END AS admin_status
-        FROM mission
-      ) AS mission_statuses
-      WHERE admin_status = 'mustSelectToday'
+      FROM mission
+      WHERE enroll_end_date IS NOT NULL
+        AND DATE(UTC_TIMESTAMP()) > DATE(enroll_end_date)
+        AND (SELECT COUNT(*)
+             FROM mission_enroll me
+             WHERE me.mission_id = mission.id
+               AND me.status = 'applied') > 0
     `);
 
+    // "선정 지연": 신청기간이 끝났고 신청자는 있는데 선정된 사람이 0명인 미션
     const [delayedResult] = await pool.query(`
       SELECT COUNT(*) as count
       FROM mission
-      WHERE select_date IS NOT NULL AND content_end_date IS NOT NULL
-        AND DATE(UTC_TIMESTAMP()) > DATE(select_date)
-        AND DATE(UTC_TIMESTAMP()) <= DATE(content_end_date)
+      WHERE enroll_end_date IS NOT NULL
+        AND DATE(UTC_TIMESTAMP()) > DATE(enroll_end_date)
         AND (SELECT COUNT(*)
-             FROM mission_enroll
-             WHERE mission_enroll.mission_id = mission.id
-               AND mission_enroll.status = 'selected') = 0
+             FROM mission_enroll me
+             WHERE me.mission_id = mission.id
+               AND me.status IN ('selected', 'completed', 'rewarded')) = 0
+        AND (SELECT COUNT(*)
+             FROM mission_enroll me
+             WHERE me.mission_id = mission.id
+               AND me.status = 'applied') > 0
     `);
 
     const [inProgressResult] = await pool.query(`
