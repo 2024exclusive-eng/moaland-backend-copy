@@ -95,9 +95,9 @@ export const GetMissionListByUserId = async ({ page, item, type, userId }) => {
       queryParams = [userId, itemsPerPage, offset];
       countParams = [userId];
     } else if (type === "registered") {
-      // User has submitted content link but not yet completed/rewarded
+      // User has submitted content link but not yet completed/rewarded (반려된 건 제외)
       statusCondition = `mission_enroll.link IS NOT NULL`;
-      additionalCondition = ` AND mission_enroll.status NOT IN ('completed', 'rewarded')`;
+      additionalCondition = ` AND mission_enroll.status NOT IN ('completed', 'rewarded', 'rejected')`;
       queryParams = [userId, itemsPerPage, offset];
       countParams = [userId];
     } else if (type === "rejected") {
