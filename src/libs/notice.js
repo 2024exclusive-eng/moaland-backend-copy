@@ -11,7 +11,7 @@ export const GetNotice = async filters => {
     const currentPage = filters?.page ? parseInt(filters.page) : 1;
     const offset = (currentPage - 1) * itemsPerPage;
 
-    let query = `SELECT notice.id, notice.title, notice.contents, notice.created FROM notice`;
+    let query = `SELECT notice.id, notice.title, notice.title_cn AS titleCn, notice.contents, notice.contents_cn AS contentsCn, notice.created FROM notice`;
     const queryParams = [];
     const conditions = [];
 
@@ -61,8 +61,8 @@ export const GetNotice = async filters => {
  */
 export const GetNoticeById = async id => {
   try {
-    const [data] = await pool.query(`SELECT id, title, contents, created FROM notice WHERE id = ?`, [id]);
-   
+    const [data] = await pool.query(`SELECT id, title, title_cn AS titleCn, contents, contents_cn AS contentsCn, created FROM notice WHERE id = ?`, [id]);
+
     return data.length ? data[0] : null;
   } catch (e) {
     throw e;
@@ -74,9 +74,9 @@ export const GetNoticeById = async id => {
  * @param {obj}
  * @returns {Promise([obj] | null)}
  */
-export const ModifyNotice = async (id, title, contents) => {
+export const ModifyNotice = async (id, title, titleCn, contents, contentsCn) => {
   try {
-    const data = await pool.query(`UPDATE notice SET title = ?, contents = ? WHERE id = ?`, [title, contents, id]);
+    const data = await pool.query(`UPDATE notice SET title = ?, title_cn = ?, contents = ?, contents_cn = ? WHERE id = ?`, [title, titleCn || null, contents, contentsCn || null, id]);
 
     return data.affectedRows;
   } catch (e) {
@@ -89,9 +89,9 @@ export const ModifyNotice = async (id, title, contents) => {
  * @param {obj}
  * @returns {Promise([obj] | null)}
  */
-export const InsertNotice = async (title, contents) => {
+export const InsertNotice = async (title, titleCn, contents, contentsCn) => {
   try {
-    const data = await pool.query(`INSERT INTO notice (title, contents) VALUES (?, ?)`, [title, contents]);
+    const data = await pool.query(`INSERT INTO notice (title, title_cn, contents, contents_cn) VALUES (?, ?, ?, ?)`, [title, titleCn || null, contents, contentsCn || null]);
 
     return data.insertId;
   } catch (e) {

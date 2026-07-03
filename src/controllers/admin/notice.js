@@ -42,12 +42,12 @@ export const GetNoticeById = async (req, res, next) => {
  */
 export const PostNotice = async (req, res, next) => {
   try {
-    const { id, title, contents } = req.body;
-    
+    const { id, title, titleCn, contents, contentsCn } = req.body;
+
     if (id) {
-      await Notice.ModifyNotice(id, title, contents);
+      await Notice.ModifyNotice(id, title, titleCn, contents, contentsCn);
     } else {
-      await Notice.InsertNotice(title, contents);
+      await Notice.InsertNotice(title, titleCn, contents, contentsCn);
     }
 
     return res.status(200).json({ success: true });

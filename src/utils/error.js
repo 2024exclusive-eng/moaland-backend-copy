@@ -95,6 +95,12 @@ const ERROR = {
   // ADMIN AUTH 100XX
   ADMIN_AUTH_NOT_MATCH_INFO: { code: 10001, msg: '아이디나 비밀번호가 일치하지 않습니다.' },
 
+  // TRANSLATE 70XX
+  NEED_ADDRESS: { code: 7001, msg: 'Address is required' },
+  NEED_TARGET_LANGUAGE: { code: 7002, msg: 'Target language is required' },
+  UNSUPPORTED_LANGUAGE: { code: 7003, msg: 'Unsupported target language' },
+  TRANSLATION_FAILED: { code: 7004, msg: 'Failed to translate address' },
+
 };
 
 export default code => {

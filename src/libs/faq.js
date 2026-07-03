@@ -11,7 +11,7 @@ export const GetFaqList = async filters => {
     const currentPage = filters?.page ? parseInt(filters.page) : 1;
     const offset = (currentPage - 1) * itemsPerPage;
 
-    let query = `SELECT id, type, title, answer, display_order AS displayOrder, is_active AS isActive, created, updated FROM faq`;
+    let query = `SELECT id, type, title, title_cn AS titleCn, answer, answer_cn AS answerCn, display_order AS displayOrder, is_active AS isActive, created, updated FROM faq`;
     const queryParams = [];
     const conditions = [];
 
@@ -74,7 +74,7 @@ export const GetFaqList = async filters => {
 export const GetFaqById = async id => {
   try {
     const [data] = await pool.query(
-      `SELECT id, type, title, answer, display_order AS displayOrder, is_active AS isActive, created, updated FROM faq WHERE id = ?`,
+      `SELECT id, type, title, title_cn AS titleCn, answer, answer_cn AS answerCn, display_order AS displayOrder, is_active AS isActive, created, updated FROM faq WHERE id = ?`,
       [id],
     );
 
@@ -92,12 +92,14 @@ export const GetFaqById = async id => {
  * @param {number} displayOrder
  * @returns {Promise(insertId)}
  */
-export const InsertFaq = async (type, title, answer, displayOrder = 0) => {
+export const InsertFaq = async (type, title, titleCn, answer, answerCn, displayOrder = 0) => {
   try {
-    const [result] = await pool.query(`INSERT INTO faq (type, title, answer, display_order) VALUES (?, ?, ?, ?)`, [
+    const [result] = await pool.query(`INSERT INTO faq (type, title, title_cn, answer, answer_cn, display_order) VALUES (?, ?, ?, ?, ?, ?)`, [
       type,
       title,
+      titleCn || null,
       answer,
+      answerCn || null,
       displayOrder,
     ]);
 
@@ -117,11 +119,11 @@ export const InsertFaq = async (type, title, answer, displayOrder = 0) => {
  * @param {string} isActive
  * @returns {Promise(affectedRows)}
  */
-export const ModifyFaq = async (id, type, title, answer, displayOrder, isActive) => {
+export const ModifyFaq = async (id, type, title, titleCn, answer, answerCn, displayOrder, isActive) => {
   try {
     const [result] = await pool.query(
-      `UPDATE faq SET type = ?, title = ?, answer = ?, display_order = ?, is_active = ? WHERE id = ?`,
-      [type, title, answer, displayOrder, isActive, id],
+      `UPDATE faq SET type = ?, title = ?, title_cn = ?, answer = ?, answer_cn = ?, display_order = ?, is_active = ? WHERE id = ?`,
+      [type, title, titleCn || null, answer, answerCn || null, displayOrder, isActive, id],
     );
 
     return result.affectedRows;

@@ -45,7 +45,7 @@ export const GetFaqById = async (req, res, next) => {
  */
 export const CreateOrUpdateFaq = async (req, res, next) => {
   try {
-    const { id, type, title, answer, displayOrder, isActive } = req.body;
+    const { id, type, title, titleCn, answer, answerCn, displayOrder, isActive } = req.body;
 
     // Validate required fields
     if (!type || !['faq', 'service_guide', 'terms_of_use', 'privacy_policy'].includes(type)) {
@@ -63,11 +63,11 @@ export const CreateOrUpdateFaq = async (req, res, next) => {
         throw { status: 404, code: EC.NOT_FOUND, message: 'FAQ not found' };
       }
 
-      await Faq.ModifyFaq(id, type, title, answer, displayOrder || 0, isActive || 'Y');
+      await Faq.ModifyFaq(id, type, title, titleCn, answer, answerCn, displayOrder || 0, isActive || 'Y');
       return res.status(200).json({ success: true, message: 'FAQ updated successfully' });
     } else {
       // Create new FAQ
-      const insertId = await Faq.InsertFaq(type, title, answer, displayOrder || 0);
+      const insertId = await Faq.InsertFaq(type, title, titleCn, answer, answerCn, displayOrder || 0);
       return res.status(201).json({ success: true, data: { id: insertId }, message: 'FAQ created successfully' });
     }
   } catch (e) {

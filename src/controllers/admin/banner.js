@@ -45,7 +45,7 @@ export const GetBannerById = async (req, res, next) => {
  */
 export const CreateOrUpdateBanner = async (req, res, next) => {
   try {
-    const { id, type, name, thumbnailPath, link, isActive } = req.body;
+    const { id, type, name, thumbnailPath, link, order, isActive } = req.body;
 
     // Validate required fields
     if (!type || !['home', 'right_banner'].includes(type)) {
@@ -63,11 +63,12 @@ export const CreateOrUpdateBanner = async (req, res, next) => {
         throw { status: 404, code: EC.NOT_FOUND, message: 'Banner not found' };
       }
 
-      await Banner.ModifyBanner(id, type, name, thumbnailPath, link || null, isActive || 'Y');
+      await Banner.ModifyBanner(id, type, name, thumbnailPath, link || null, order ?? existingBanner.order, isActive || 'Y');
       return res.status(200).json({ success: true, message: 'Banner updated successfully' });
     } else {
-      // Create new banner
-      const insertId = await Banner.InsertBanner(type, name, thumbnailPath, link || null);
+      // Create new banner - get next order if not provided (only for home type)
+      const bannerOrder = type === 'home' ? (order ?? await Banner.GetNextOrder(type)) : (order ?? 0);
+      const insertId = await Banner.InsertBanner(type, name, thumbnailPath, link || null, bannerOrder);
       return res.status(201).json({ success: true, data: { id: insertId }, message: 'Banner created successfully' });
     }
   } catch (e) {
@@ -119,6 +120,44 @@ export const ToggleBannerActive = async (req, res, next) => {
     await Banner.ToggleBannerActive(id, isActive);
 
     return res.status(200).json({ success: true, message: 'Banner status updated successfully' });
+  } catch (e) {
+    return next(e);
+  }
+};
+
+/**
+ * @function ReorderBanners
+ * @description Reorder banners by updating display_order
+ * @returns {obj}
+ */
+export const ReorderBanners = async (req, res, next) => {
+  try {
+    const { banners } = req.body;
+
+    // Validate input
+    if (!banners || !Array.isArray(banners) || banners.length === 0) {
+      throw { status: 400, code: EC.INVALID_PARAMETER, message: 'Banners array is required' };
+    }
+
+    // Validate each banner object has id and order, and is a home type banner
+    for (const banner of banners) {
+      if (!banner.id || banner.order === undefined) {
+        throw { status: 400, code: EC.INVALID_PARAMETER, message: 'Each banner must have id and order' };
+      }
+
+      // Verify banner exists and is home type
+      const existingBanner = await Banner.GetBannerById(banner.id);
+      if (!existingBanner) {
+        throw { status: 404, code: EC.NOT_FOUND, message: `Banner with id ${banner.id} not found` };
+      }
+      if (existingBanner.type !== 'home') {
+        throw { status: 400, code: EC.INVALID_PARAMETER, message: 'Reorder is only available for home type banners' };
+      }
+    }
+
+    await Banner.ReorderBanners(banners);
+
+    return res.status(200).json({ success: true, message: 'Banners reordered successfully' });
   } catch (e) {
     return next(e);
   }

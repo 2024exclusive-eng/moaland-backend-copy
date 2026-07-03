@@ -2,7 +2,7 @@ import pool from '../../utils/pool.js';
 import EC from '../../utils/error.js';
 import * as Mission from '../../libs/mission.js';
 import * as MissionEnroll from '../../libs/missionEnroll.js';
-import { isEmpty } from '../../utils/common.js';
+import { isEmpty, getKSTDate, getKSTDateOnly, getKSTEndOfDay } from '../../utils/common.js';
 
 /**
  * @function GetMissionList
@@ -87,17 +87,17 @@ export const EnrollMission = async (req, res, next) => {
     if (enrollCount >= missionDetail.maxEnroll)
       return res.status(200).json({ success: false, error: EC('MISSION_MAX_ENROLL_REACHED') });
 
-    // 2. 미션이 시작 전인지 확인 (날짜만 비교하여 당일 전체 가능)
-    const currentDate = new Date();
-    const currentDateOnly = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
-    const enrollStartDateOnly = new Date(new Date(missionDetail.enrollStartDate).setHours(0, 0, 0, 0));
-    const enrollEndDateOnly = new Date(new Date(missionDetail.enrollEndDate).setHours(23, 59, 59, 999));
+    // 2. 미션이 시작 전인지 확인 (KST 기준으로 날짜만 비교하여 당일 전체 가능)
+    const currentDateKST = getKSTDate();
+    const currentDateOnlyKST = getKSTDateOnly(currentDateKST);
+    const enrollStartDateKST = getKSTDateOnly(missionDetail.enrollStartDate);
+    const enrollEndDateKST = getKSTEndOfDay(missionDetail.enrollEndDate);
 
-    if (currentDateOnly < enrollStartDateOnly)
+    if (currentDateOnlyKST < enrollStartDateKST)
       return res.status(200).json({ success: false, error: EC('MISSION_ALREADY_STARTED') });
 
-    // 3. 미션이 종료되지 않았는지 확인 (종료일 23:59:59까지 가능)
-    if (currentDate > enrollEndDateOnly)
+    // 3. 미션이 종료되지 않았는지 확인 (종료일 23:59:59 KST까지 가능)
+    if (currentDateKST > enrollEndDateKST)
       return res.status(200).json({ success: false, error: EC('MISSION_ALREADY_ENDED') });
 
     // 미션 신청 등록 (mission_enroll 테이블에 row 생성)
@@ -187,37 +187,40 @@ export const PostMissionContents = async (req, res, next) => {
       });
     }
 
-    // Check if within mission period OR content registration period
-    const now = new Date();
-    const missionStartDate = mission.missionStartDate ? new Date(mission.missionStartDate) : null;
-    const missionEndDate = mission.missionEndDate ? new Date(mission.missionEndDate) : null;
-    const contentStartDate = mission.contentStartDate ? new Date(mission.contentStartDate) : null;
-    const contentEndDate = mission.contentEndDate ? new Date(mission.contentEndDate) : null;
+    // Check if within mission period OR content registration period using KST
+    const nowKST = getKSTDate();
+    const nowKSTDateOnly = getKSTDateOnly(nowKST);
 
-    // Check if within mission period
-    const withinMissionPeriod = missionStartDate && missionEndDate
-      ? (now >= missionStartDate && now <= missionEndDate)
+    // Convert mission dates to KST for comparison
+    const missionStartDateKST = mission.missionStartDate ? getKSTDateOnly(mission.missionStartDate) : null;
+    const missionEndDateKST = mission.missionEndDate ? getKSTEndOfDay(mission.missionEndDate) : null;
+    const contentStartDateKST = mission.contentStartDate ? getKSTDateOnly(mission.contentStartDate) : null;
+    const contentEndDateKST = mission.contentEndDate ? getKSTEndOfDay(mission.contentEndDate) : null;
+
+    // Check if within mission period (until end of day KST)
+    const withinMissionPeriod = missionStartDateKST && missionEndDateKST
+      ? (nowKST >= missionStartDateKST && nowKST <= missionEndDateKST)
       : false;
 
-    // Check if within content period
+    // Check if within content period (until 11:59 PM KST on end date)
     const withinContentPeriod = (() => {
-      if (contentEndDate && now > contentEndDate) return false;
-      if (contentStartDate && now < contentStartDate) return false;
+      if (contentEndDateKST && nowKST > contentEndDateKST) return false;
+      if (contentStartDateKST && nowKSTDateOnly < contentStartDateKST) return false;
       // If both dates are null, consider it as no restriction
-      if (!contentStartDate && !contentEndDate) return true;
+      if (!contentStartDateKST && !contentEndDateKST) return true;
       return true;
     })();
 
     // Allow if within either period
     if (!withinMissionPeriod && !withinContentPeriod) {
       // Determine which error to show
-      if (contentEndDate && now > contentEndDate) {
+      if (contentEndDateKST && nowKST > contentEndDateKST) {
         return res.status(403).json({
           success: false,
           error: EC('MISSION_CONTENT_PERIOD_EXPIRED')
         });
       }
-      if (contentStartDate && now < contentStartDate) {
+      if (contentStartDateKST && nowKSTDateOnly < contentStartDateKST) {
         return res.status(403).json({
           success: false,
           error: EC('MISSION_CONTENT_PERIOD_NOT_STARTED')

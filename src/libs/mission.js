@@ -20,8 +20,10 @@ export const GetMissionList = async filters => {
              mission.max_enroll AS maxEnroll,
              mission.point AS point,
              mission.mission_contents AS missionContent,
+             mission.mission_contents_cn AS missionContentCn,
              mission.brand AS brand,
              mission.title AS title,
+             mission.title_cn AS titleCn,
              mission.thumbnail_img AS thumbnailImg,
              mission.is_recommended AS isRecommended,
              (SELECT COUNT(mission_enroll.id)
@@ -140,18 +142,25 @@ export const GetMissionByMissionId = async missionId => {
               mission.social AS social,
               mission.region AS region,
               mission.address AS address,
+              mission.address_cn AS addressCn,
+              mission.address_en AS addressEn,
               mission.latitude AS latitude,
               mission.longitude AS longitude,
               mission.point AS point,
               mission.max_enroll AS maxEnroll,
               mission.brand AS brand,
               mission.title AS title,
+              mission.title_cn AS titleCn,
               mission.thumbnail_img AS thumbnailImg,
               mission.detail_img AS detailImg,
               mission.goods_contents AS goodsContents,
+              mission.goods_contents_cn AS goodsContentsCn,
               mission.mission_contents AS missionContents,
+              mission.mission_contents_cn AS missionContentsCn,
               mission.additional_info AS additionalInfo,
+              mission.additional_info_cn AS additionalInfoCn,
               mission.guideline AS guideline,
+              mission.guideline_cn AS guidelineCn,
               mission.is_recommended AS isRecommended,
               (SELECT COUNT(mission_enroll.id)
                FROM mission_enroll
@@ -202,18 +211,25 @@ export const InsertMission = async missionData => {
       social,
       region,
       address,
+      addressCn,
+      addressEn,
       latitude,
       longitude,
       point,
       maxEnroll,
       brand,
       title,
+      titleCn,
       thumbnailImg,
       detailImg,
       goodsContents,
+      goodsContentsCn,
       missionContents,
+      missionContentsCn,
       additionalInfo,
+      additionalInfoCn,
       guideline,
+      guidelineCn,
       isRecommended,
     } = missionData;
 
@@ -221,10 +237,11 @@ export const InsertMission = async missionData => {
       `INSERT INTO mission (
         category, enroll_start_date, enroll_end_date, select_date, payment_date,
         mission_start_date, mission_end_date, content_start_date, content_end_date,
-        social, region, address, latitude, longitude, point, max_enroll,
-        brand, title, thumbnail_img, detail_img, goods_contents, mission_contents,
-        additional_info, guideline, is_recommended, is_public
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        social, region, address, address_cn, address_en, latitude, longitude, point, max_enroll,
+        brand, title, title_cn, thumbnail_img, detail_img, goods_contents, goods_contents_cn,
+        mission_contents, mission_contents_cn, additional_info, additional_info_cn,
+        guideline, guideline_cn, is_recommended, is_public
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         category,
         enrollStartDate,
@@ -238,18 +255,25 @@ export const InsertMission = async missionData => {
         social,
         region,
         address,
+        addressCn || null,
+        addressEn || null,
         latitude,
         longitude,
         point,
         maxEnroll,
         brand,
         title,
+        titleCn || null,
         thumbnailImg,
         detailImg,
         goodsContents,
+        goodsContentsCn || null,
         missionContents,
+        missionContentsCn || null,
         additionalInfo,
+        additionalInfoCn || null,
         guideline,
+        guidelineCn || null,
         isRecommended ? 1 : 0,
         1
       ],
@@ -282,18 +306,25 @@ export const UpdateMission = async (missionId, missionData) => {
       social,
       region,
       address,
+      addressCn,
+      addressEn,
       latitude,
       longitude,
       point,
       maxEnroll,
       brand,
       title,
+      titleCn,
       thumbnailImg,
       detailImg,
       goodsContents,
+      goodsContentsCn,
       missionContents,
+      missionContentsCn,
       additionalInfo,
+      additionalInfoCn,
       guideline,
+      guidelineCn,
       isRecommended,
     } = missionData;
 
@@ -311,18 +342,25 @@ export const UpdateMission = async (missionId, missionData) => {
         social = ?,
         region = ?,
         address = ?,
+        address_cn = ?,
+        address_en = ?,
         latitude = ?,
         longitude = ?,
         point = ?,
         max_enroll = ?,
         brand = ?,
         title = ?,
+        title_cn = ?,
         thumbnail_img = ?,
         detail_img = ?,
         goods_contents = ?,
+        goods_contents_cn = ?,
         mission_contents = ?,
+        mission_contents_cn = ?,
         additional_info = ?,
+        additional_info_cn = ?,
         guideline = ?,
+        guideline_cn = ?,
         is_recommended = ?
       WHERE id = ?`,
       [
@@ -338,18 +376,25 @@ export const UpdateMission = async (missionId, missionData) => {
         social,
         region,
         address,
+        addressCn || null,
+        addressEn || null,
         latitude,
         longitude,
         point,
         maxEnroll,
         brand,
         title,
+        titleCn || null,
         thumbnailImg,
         detailImg,
         goodsContents,
+        goodsContentsCn || null,
         missionContents,
+        missionContentsCn || null,
         additionalInfo,
+        additionalInfoCn || null,
         guideline,
+        guidelineCn || null,
         isRecommended ? 1 : 0,
         missionId,
       ],
@@ -467,6 +512,7 @@ export const GetMissionListByStatus = async (filters = {}) => {
                mission.max_enroll AS maxEnroll,
                mission.brand AS brand,
                mission.title AS title,
+               mission.title_cn AS titleCn,
                mission.is_public AS is_public,
                mission.is_recommended AS isRecommended,
                mission.thumbnail_img AS thumbnailImg,
@@ -487,20 +533,35 @@ export const GetMissionListByStatus = async (filters = {}) => {
                 WHERE mission_enroll.mission_id = mission.id
                   AND mission_enroll.status = 'applied') AS appliedParticipantCount,
                CASE
-                 WHEN mission.enroll_start_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) < DATE(mission.enroll_start_date) THEN 'opening_soon'
+                 WHEN mission.enroll_start_date IS NOT NULL AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(mission.enroll_start_date, '+00:00', '+09:00')) THEN 'opening_soon'
                  WHEN mission.enroll_start_date IS NOT NULL AND mission.enroll_end_date IS NOT NULL
-                   AND DATE(UTC_TIMESTAMP()) >= DATE(mission.enroll_start_date)
-                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.enroll_end_date) THEN 'applying'
-                 WHEN mission.select_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) = DATE(mission.select_date) THEN 'application_deadline'
+                   AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) >= DATE(CONVERT_TZ(mission.enroll_start_date, '+00:00', '+09:00'))
+                   AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(mission.enroll_end_date, '+00:00', '+09:00')) THEN 'applying'
+                 WHEN (mission.enroll_end_date IS NOT NULL AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.enroll_end_date, '+00:00', '+09:00')))
+                   AND ((mission.mission_start_date IS NOT NULL AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(mission.mission_start_date, '+00:00', '+09:00')))
+                     OR (mission.mission_start_date IS NULL AND mission.content_start_date IS NOT NULL AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(mission.content_start_date, '+00:00', '+09:00')))
+                     OR (mission.mission_end_date IS NOT NULL AND mission.content_start_date IS NOT NULL
+                       AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.mission_end_date, '+00:00', '+09:00'))
+                       AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(mission.content_start_date, '+00:00', '+09:00'))))
+                   -- Exclude missions with delayed selection (before select_date)
+                   AND NOT (mission.select_date IS NOT NULL AND mission.enroll_end_date IS NOT NULL
+                     AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.enroll_end_date, '+00:00', '+09:00'))
+                     AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(mission.select_date, '+00:00', '+09:00')))
+                   -- Exclude missions with delayed selection (after select_date, no participants)
+                   AND NOT (mission.select_date IS NOT NULL
+                     AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.select_date, '+00:00', '+09:00'))
+                     AND (mission.content_end_date IS NULL OR DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(mission.content_end_date, '+00:00', '+09:00')))
+                     AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND (mission_enroll.status = 'selected' OR mission_enroll.status = 'completed')) = 0)
+                   THEN 'application_deadline'
                  WHEN mission.mission_start_date IS NOT NULL AND mission.mission_end_date IS NOT NULL
-                   AND DATE(UTC_TIMESTAMP()) >= DATE(mission.mission_start_date)
-                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.mission_end_date) THEN 'in_progress'
+                   AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) >= DATE(CONVERT_TZ(mission.mission_start_date, '+00:00', '+09:00'))
+                   AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(mission.mission_end_date, '+00:00', '+09:00')) THEN 'in_progress'
                  WHEN mission.content_start_date IS NOT NULL AND mission.content_end_date IS NOT NULL
-                   AND DATE(UTC_TIMESTAMP()) >= DATE(mission.content_start_date)
-                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.content_end_date) THEN 'registration_deadline'
+                   AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) >= DATE(CONVERT_TZ(mission.content_start_date, '+00:00', '+09:00'))
+                   AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(mission.content_end_date, '+00:00', '+09:00')) THEN 'registration_deadline'
                  WHEN mission.content_end_date IS NOT NULL AND mission.enroll_end_date IS NOT NULL
-                   AND DATE(UTC_TIMESTAMP()) > DATE(mission.content_end_date)
-                   AND DATE(UTC_TIMESTAMP()) > DATE(mission.enroll_end_date) THEN 'end'
+                   AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.content_end_date, '+00:00', '+09:00'))
+                   AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.enroll_end_date, '+00:00', '+09:00')) THEN 'end'
                  ELSE 'opening_soon'
                END AS computed_status,
                CASE
@@ -525,20 +586,35 @@ export const GetMissionListByStatus = async (filters = {}) => {
                mission.select_date AS selectDate,
                mission.content_end_date AS contentEndDate,
                CASE
-                 WHEN mission.enroll_start_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) < DATE(mission.enroll_start_date) THEN 'opening_soon'
+                 WHEN mission.enroll_start_date IS NOT NULL AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(mission.enroll_start_date, '+00:00', '+09:00')) THEN 'opening_soon'
                  WHEN mission.enroll_start_date IS NOT NULL AND mission.enroll_end_date IS NOT NULL
-                   AND DATE(UTC_TIMESTAMP()) >= DATE(mission.enroll_start_date)
-                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.enroll_end_date) THEN 'applying'
-                 WHEN mission.select_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) = DATE(mission.select_date) THEN 'application_deadline'
+                   AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) >= DATE(CONVERT_TZ(mission.enroll_start_date, '+00:00', '+09:00'))
+                   AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(mission.enroll_end_date, '+00:00', '+09:00')) THEN 'applying'
+                 WHEN (mission.enroll_end_date IS NOT NULL AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.enroll_end_date, '+00:00', '+09:00')))
+                   AND ((mission.mission_start_date IS NOT NULL AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(mission.mission_start_date, '+00:00', '+09:00')))
+                     OR (mission.mission_start_date IS NULL AND mission.content_start_date IS NOT NULL AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(mission.content_start_date, '+00:00', '+09:00')))
+                     OR (mission.mission_end_date IS NOT NULL AND mission.content_start_date IS NOT NULL
+                       AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.mission_end_date, '+00:00', '+09:00'))
+                       AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(mission.content_start_date, '+00:00', '+09:00'))))
+                   -- Exclude missions with delayed selection (before select_date)
+                   AND NOT (mission.select_date IS NOT NULL AND mission.enroll_end_date IS NOT NULL
+                     AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.enroll_end_date, '+00:00', '+09:00'))
+                     AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(mission.select_date, '+00:00', '+09:00')))
+                   -- Exclude missions with delayed selection (after select_date, no participants)
+                   AND NOT (mission.select_date IS NOT NULL
+                     AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.select_date, '+00:00', '+09:00'))
+                     AND (mission.content_end_date IS NULL OR DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(mission.content_end_date, '+00:00', '+09:00')))
+                     AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND (mission_enroll.status = 'selected' OR mission_enroll.status = 'completed')) = 0)
+                   THEN 'application_deadline'
                  WHEN mission.mission_start_date IS NOT NULL AND mission.mission_end_date IS NOT NULL
-                   AND DATE(UTC_TIMESTAMP()) >= DATE(mission.mission_start_date)
-                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.mission_end_date) THEN 'in_progress'
+                   AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) >= DATE(CONVERT_TZ(mission.mission_start_date, '+00:00', '+09:00'))
+                   AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(mission.mission_end_date, '+00:00', '+09:00')) THEN 'in_progress'
                  WHEN mission.content_start_date IS NOT NULL AND mission.content_end_date IS NOT NULL
-                   AND DATE(UTC_TIMESTAMP()) >= DATE(mission.content_start_date)
-                   AND DATE(UTC_TIMESTAMP()) <= DATE(mission.content_end_date) THEN 'registration_deadline'
+                   AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) >= DATE(CONVERT_TZ(mission.content_start_date, '+00:00', '+09:00'))
+                   AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(mission.content_end_date, '+00:00', '+09:00')) THEN 'registration_deadline'
                  WHEN mission.content_end_date IS NOT NULL AND mission.enroll_end_date IS NOT NULL
-                   AND DATE(UTC_TIMESTAMP()) > DATE(mission.content_end_date)
-                   AND DATE(UTC_TIMESTAMP()) > DATE(mission.enroll_end_date) THEN 'end'
+                   AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.content_end_date, '+00:00', '+09:00'))
+                   AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.enroll_end_date, '+00:00', '+09:00')) THEN 'end'
                  ELSE 'opening_soon'
                END AS computed_status,
                CASE
@@ -556,6 +632,7 @@ export const GetMissionListByStatus = async (filters = {}) => {
                mission.social AS social,
                mission.region AS region,
                mission.title AS title,
+               mission.title_cn AS titleCn,
                mission.brand AS brand,
                mission.is_recommended AS isRecommended
         FROM mission
@@ -746,14 +823,9 @@ export const GetMissionStatistics = async () => {
     const [inProgressResult] = await pool.query(`
       SELECT COUNT(*) as count
       FROM mission
-      WHERE (enroll_start_date IS NULL OR enroll_end_date IS NULL
-            OR DATE(UTC_TIMESTAMP()) NOT BETWEEN DATE(enroll_start_date) AND DATE(enroll_end_date))
-        AND ((mission_start_date IS NOT NULL AND mission_end_date IS NOT NULL
-              AND DATE(UTC_TIMESTAMP()) >= DATE(mission_start_date)
-              AND DATE(UTC_TIMESTAMP()) <= DATE(mission_end_date))
-          OR (content_start_date IS NOT NULL AND content_end_date IS NOT NULL
-              AND DATE(UTC_TIMESTAMP()) >= DATE(content_start_date)
-              AND DATE(UTC_TIMESTAMP()) <= DATE(content_end_date)))
+      WHERE mission_start_date IS NOT NULL AND mission_end_date IS NOT NULL
+              AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) >= DATE(CONVERT_TZ(mission_start_date, '+00:00', '+09:00'))
+              AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(mission_end_date, '+00:00', '+09:00'))
     `);
 
     return {
@@ -787,30 +859,45 @@ export const GetMissionFilterCounts = async () => {
         SELECT
           CASE
             -- Priority 1: 오픈예정 (Opening Soon)
-            WHEN enroll_start_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) < DATE(enroll_start_date) THEN 'opening_soon'
+            WHEN enroll_start_date IS NOT NULL AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(enroll_start_date, '+00:00', '+09:00')) THEN 'opening_soon'
 
             -- Priority 2: 신청중 (Applying)
             WHEN enroll_start_date IS NOT NULL AND enroll_end_date IS NOT NULL
-              AND DATE(UTC_TIMESTAMP()) >= DATE(enroll_start_date)
-              AND DATE(UTC_TIMESTAMP()) <= DATE(enroll_end_date) THEN 'applying'
+              AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) >= DATE(CONVERT_TZ(enroll_start_date, '+00:00', '+09:00'))
+              AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(enroll_end_date, '+00:00', '+09:00')) THEN 'applying'
 
-            -- Priority 3: 신청마감 (Application Deadline)
-            WHEN select_date IS NOT NULL AND DATE(UTC_TIMESTAMP()) = DATE(select_date) THEN 'application_deadline'
+            -- Priority 3: 신청마감 (Application Deadline) - includes gaps before mission/content starts, excludes delayed selection
+            WHEN (enroll_end_date IS NOT NULL AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(enroll_end_date, '+00:00', '+09:00')))
+              AND ((mission_start_date IS NOT NULL AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(mission_start_date, '+00:00', '+09:00')))
+                OR (mission_start_date IS NULL AND content_start_date IS NOT NULL AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(content_start_date, '+00:00', '+09:00')))
+                OR (mission_end_date IS NOT NULL AND content_start_date IS NOT NULL
+                  AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission_end_date, '+00:00', '+09:00'))
+                  AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(content_start_date, '+00:00', '+09:00'))))
+              -- Exclude missions with delayed selection (before select_date)
+              AND NOT (select_date IS NOT NULL AND enroll_end_date IS NOT NULL
+                AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(enroll_end_date, '+00:00', '+09:00'))
+                AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(select_date, '+00:00', '+09:00')))
+              -- Exclude missions with delayed selection (after select_date, no participants)
+              AND NOT (select_date IS NOT NULL
+                AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(select_date, '+00:00', '+09:00'))
+                AND (content_end_date IS NULL OR DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(content_end_date, '+00:00', '+09:00')))
+                AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND (mission_enroll.status = 'selected' OR mission_enroll.status = 'completed')) = 0)
+              THEN 'application_deadline'
 
             -- Priority 4: 진행중 (In Progress)
             WHEN mission_start_date IS NOT NULL AND mission_end_date IS NOT NULL
-              AND DATE(UTC_TIMESTAMP()) >= DATE(mission_start_date)
-              AND DATE(UTC_TIMESTAMP()) <= DATE(mission_end_date) THEN 'in_progress'
+              AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) >= DATE(CONVERT_TZ(mission_start_date, '+00:00', '+09:00'))
+              AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(mission_end_date, '+00:00', '+09:00')) THEN 'in_progress'
 
             -- Priority 5: 등록마감 (Registration Deadline)
             WHEN content_start_date IS NOT NULL AND content_end_date IS NOT NULL
-              AND DATE(UTC_TIMESTAMP()) >= DATE(content_start_date)
-              AND DATE(UTC_TIMESTAMP()) <= DATE(content_end_date) THEN 'registration_deadline'
+              AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) >= DATE(CONVERT_TZ(content_start_date, '+00:00', '+09:00'))
+              AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(content_end_date, '+00:00', '+09:00')) THEN 'registration_deadline'
 
             -- Priority 6: 종료 (Ended)
             WHEN content_end_date IS NOT NULL AND enroll_end_date IS NOT NULL
-              AND DATE(UTC_TIMESTAMP()) > DATE(content_end_date)
-              AND DATE(UTC_TIMESTAMP()) > DATE(enroll_end_date) THEN 'end_count'
+              AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(content_end_date, '+00:00', '+09:00'))
+              AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(enroll_end_date, '+00:00', '+09:00')) THEN 'end_count'
 
             -- Default: 오픈예정 (Opening Soon)
             ELSE 'opening_soon'

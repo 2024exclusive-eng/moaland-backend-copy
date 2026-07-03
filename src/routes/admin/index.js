@@ -7,6 +7,7 @@ import noticeRoute from './notice.js';
 import bannerRoute from './banner.js';
 import eventRoute from './event.js';
 import faqRoute from './faq.js';
+import translateRoute from './translate.js';
 import * as upload from "../../controllers/admin/upload.js";
 
 import { AdminLoginCheck } from "../../middlewares/auth.js";
@@ -35,6 +36,7 @@ route.use('/notice', noticeRoute);
 route.use('/banner', bannerRoute);
 route.use('/event', eventRoute);
 route.use('/faq', faqRoute);
+route.use('/translate', translateRoute);
 route.post('/image', AdminLoginCheck, uploadStorage.single("file"), upload.UploadUserImage); // 업로드 이미지
 
 export default route;

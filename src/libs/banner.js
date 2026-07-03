@@ -11,7 +11,7 @@ export const GetBannerList = async filters => {
     const currentPage = filters?.page ? parseInt(filters.page) : 1;
     const offset = (currentPage - 1) * itemsPerPage;
 
-    let query = `SELECT id, type, name, thumbnail_path AS thumbnailPath, link, is_active AS isActive, created, updated FROM banner`;
+    let query = `SELECT id, type, name, thumbnail_path AS thumbnailPath, link, \`order\`, is_active AS isActive, created, updated FROM banner`;
     const queryParams = [];
     const conditions = [];
 
@@ -31,7 +31,7 @@ export const GetBannerList = async filters => {
       query += ' WHERE ' + conditions.join(' AND ');
     }
 
-    query += ' ORDER BY created DESC LIMIT ? OFFSET ?';
+    query += ' ORDER BY `order` ASC, id ASC LIMIT ? OFFSET ?';
     queryParams.push(itemsPerPage, offset);
 
     // Count query
@@ -68,7 +68,7 @@ export const GetBannerList = async filters => {
 export const GetBannerById = async id => {
   try {
     const [data] = await pool.query(
-      `SELECT id, type, name, thumbnail_path AS thumbnailPath, link, is_active AS isActive, created, updated FROM banner WHERE id = ?`,
+      `SELECT id, type, name, thumbnail_path AS thumbnailPath, link, \`order\`, is_active AS isActive, created, updated FROM banner WHERE id = ?`,
       [id],
     );
 
@@ -86,11 +86,11 @@ export const GetBannerById = async id => {
  * @param {string} link
  * @returns {Promise(insertId)}
  */
-export const InsertBanner = async (type, name, thumbnailPath, link) => {
+export const InsertBanner = async (type, name, thumbnailPath, link, order = 0) => {
   try {
     const [result] = await pool.query(
-      `INSERT INTO banner (type, name, thumbnail_path, link) VALUES (?, ?, ?, ?)`,
-      [type, name, thumbnailPath, link],
+      `INSERT INTO banner (type, name, thumbnail_path, link, \`order\`) VALUES (?, ?, ?, ?, ?)`,
+      [type, name, thumbnailPath, link, order],
     );
 
     return result.insertId;
@@ -109,11 +109,11 @@ export const InsertBanner = async (type, name, thumbnailPath, link) => {
  * @param {string} isActive
  * @returns {Promise(affectedRows)}
  */
-export const ModifyBanner = async (id, type, name, thumbnailPath, link, isActive) => {
+export const ModifyBanner = async (id, type, name, thumbnailPath, link, order, isActive) => {
   try {
     const [result] = await pool.query(
-      `UPDATE banner SET type = ?, name = ?, thumbnail_path = ?, link = ?, is_active = ? WHERE id = ?`,
-      [type, name, thumbnailPath, link, isActive, id],
+      `UPDATE banner SET type = ?, name = ?, thumbnail_path = ?, link = ?, \`order\` = ?, is_active = ? WHERE id = ?`,
+      [type, name, thumbnailPath, link, order, isActive, id],
     );
 
     return result.affectedRows;
@@ -148,6 +148,48 @@ export const ToggleBannerActive = async (id, isActive) => {
     const [result] = await pool.query(`UPDATE banner SET is_active = ? WHERE id = ?`, [isActive, id]);
 
     return result.affectedRows;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * @function ReorderBanners
+ * @param {Array} bannerOrders - Array of {id, order} objects
+ * @returns {Promise(boolean)}
+ */
+export const ReorderBanners = async bannerOrders => {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    for (const banner of bannerOrders) {
+      await conn.query(`UPDATE banner SET \`order\` = ? WHERE id = ?`, [banner.order, banner.id]);
+    }
+
+    await conn.commit();
+    return true;
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
+  }
+};
+
+/**
+ * @function GetNextOrder
+ * @param {string} type - Banner type (home | right_banner)
+ * @returns {Promise(number)} Next available order
+ */
+export const GetNextOrder = async type => {
+  try {
+    const [result] = await pool.query(
+      `SELECT COALESCE(MAX(\`order\`), 0) + 1 AS nextOrder FROM banner WHERE type = ?`,
+      [type],
+    );
+
+    return result[0].nextOrder;
   } catch (e) {
     throw e;
   }
