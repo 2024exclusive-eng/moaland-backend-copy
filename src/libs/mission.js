@@ -164,7 +164,39 @@ export const GetMissionByMissionId = async missionId => {
               mission.is_recommended AS isRecommended,
               (SELECT COUNT(mission_enroll.id)
                FROM mission_enroll
-               WHERE mission_enroll.mission_id = mission.id) AS enrollCount
+               WHERE mission_enroll.mission_id = mission.id) AS enrollCount,
+              CASE
+                WHEN mission.enroll_start_date IS NOT NULL AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(mission.enroll_start_date, '+00:00', '+09:00')) THEN 'opening_soon'
+                WHEN mission.enroll_start_date IS NOT NULL AND mission.enroll_end_date IS NOT NULL
+                  AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) >= DATE(CONVERT_TZ(mission.enroll_start_date, '+00:00', '+09:00'))
+                  AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(mission.enroll_end_date, '+00:00', '+09:00')) THEN 'applying'
+                WHEN (mission.enroll_end_date IS NOT NULL AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.enroll_end_date, '+00:00', '+09:00')))
+                  AND ((mission.mission_start_date IS NOT NULL AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(mission.mission_start_date, '+00:00', '+09:00')))
+                    OR (mission.mission_start_date IS NULL AND mission.content_start_date IS NOT NULL AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(mission.content_start_date, '+00:00', '+09:00')))
+                    OR (mission.mission_end_date IS NOT NULL AND mission.content_start_date IS NOT NULL
+                      AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.mission_end_date, '+00:00', '+09:00'))
+                      AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(mission.content_start_date, '+00:00', '+09:00'))))
+                  -- Exclude missions with delayed selection (before select_date)
+                  AND NOT (mission.select_date IS NOT NULL AND mission.enroll_end_date IS NOT NULL
+                    AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.enroll_end_date, '+00:00', '+09:00'))
+                    AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(mission.select_date, '+00:00', '+09:00')))
+                  -- Exclude missions with delayed selection (after select_date, no participants)
+                  AND NOT (mission.select_date IS NOT NULL
+                    AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.select_date, '+00:00', '+09:00'))
+                    AND (mission.content_end_date IS NULL OR DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(mission.content_end_date, '+00:00', '+09:00')))
+                    AND (SELECT COUNT(*) FROM mission_enroll WHERE mission_enroll.mission_id = mission.id AND (mission_enroll.status = 'selected' OR mission_enroll.status = 'completed')) = 0)
+                  THEN 'application_deadline'
+                WHEN mission.mission_start_date IS NOT NULL AND mission.mission_end_date IS NOT NULL
+                  AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) >= DATE(CONVERT_TZ(mission.mission_start_date, '+00:00', '+09:00'))
+                  AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(mission.mission_end_date, '+00:00', '+09:00')) THEN 'in_progress'
+                WHEN mission.content_start_date IS NOT NULL AND mission.content_end_date IS NOT NULL
+                  AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) >= DATE(CONVERT_TZ(mission.content_start_date, '+00:00', '+09:00'))
+                  AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(mission.content_end_date, '+00:00', '+09:00')) THEN 'registration_deadline'
+                WHEN mission.content_end_date IS NOT NULL AND mission.enroll_end_date IS NOT NULL
+                  AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.content_end_date, '+00:00', '+09:00'))
+                  AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(mission.enroll_end_date, '+00:00', '+09:00')) THEN 'end'
+                ELSE 'opening_soon'
+              END AS computed_status
        FROM mission
        WHERE mission.id = ?`,
       [missionId],
