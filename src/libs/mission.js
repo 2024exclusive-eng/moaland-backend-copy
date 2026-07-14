@@ -165,6 +165,10 @@ export const GetMissionByMissionId = async missionId => {
               (SELECT COUNT(mission_enroll.id)
                FROM mission_enroll
                WHERE mission_enroll.mission_id = mission.id) AS enrollCount,
+              (SELECT COUNT(DISTINCT mission_enroll.id)
+               FROM mission_enroll
+               WHERE mission_enroll.mission_id = mission.id
+                 AND mission_enroll.status IN ('selected', 'completed', 'rewarded')) AS selectedParticipantCount,
               CASE
                 WHEN mission.enroll_start_date IS NOT NULL AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) < DATE(CONVERT_TZ(mission.enroll_start_date, '+00:00', '+09:00')) THEN 'opening_soon'
                 WHEN mission.enroll_start_date IS NOT NULL AND mission.enroll_end_date IS NOT NULL
