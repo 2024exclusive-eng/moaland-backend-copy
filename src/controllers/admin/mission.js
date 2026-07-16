@@ -14,9 +14,8 @@ export const GetMissionStatus = async (req, res, next) => {
       success: true,
       statistics: {
         totalMissions: statistics.totalMissions,
-        mustSelectToday: statistics.mustSelectToday,
-        delayedEnrollments: statistics.delayedEnrollments,
-        inProgress: statistics.inProgress
+        inProgress: statistics.inProgress,
+        ended: statistics.ended
       }
     });
   } catch (e) {
