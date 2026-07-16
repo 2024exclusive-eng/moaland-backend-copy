@@ -216,3 +216,6 @@ dist
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/node,visualstudiocode,macos,serverless
+
+# Local dev DB wrapper (points backend at local MySQL)
+run-local.sh

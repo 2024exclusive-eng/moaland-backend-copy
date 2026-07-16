@@ -822,53 +822,28 @@ export const UpdateRecommendedMission = async (missionId, isRecommended) => {
  */
 export const GetMissionStatistics = async () => {
   try {
-    // Separate queries for safety and clarity - independent counts (no cascading)
+    // P33: three metrics — 총 캠페인, 종료된 캠페인, 진행중(= 총 − 종료).
     const [totalMissionsResult] = await pool.query(`
       SELECT COUNT(*) as count
       FROM mission
     `);
 
-    // "선정 필요": 신청기간이 끝났는데 아직 판단(선정/반려) 안 된 신청자(applied)가 남은 미션
-    const [mustSelectTodayResult] = await pool.query(`
+    // "종료된 캠페인": content_end 과 enroll_end 이 모두 지난 미션 (list/filter의 'end' 규칙과 동일)
+    const [endedResult] = await pool.query(`
       SELECT COUNT(*) as count
       FROM mission
-      WHERE enroll_end_date IS NOT NULL
-        AND DATE(UTC_TIMESTAMP()) > DATE(enroll_end_date)
-        AND (SELECT COUNT(*)
-             FROM mission_enroll me
-             WHERE me.mission_id = mission.id
-               AND me.status = 'applied') > 0
+      WHERE content_end_date IS NOT NULL AND enroll_end_date IS NOT NULL
+        AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(content_end_date, '+00:00', '+09:00'))
+        AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(enroll_end_date, '+00:00', '+09:00'))
     `);
 
-    // "선정 지연": 신청기간이 끝났고 신청자는 있는데 선정된 사람이 0명인 미션
-    const [delayedResult] = await pool.query(`
-      SELECT COUNT(*) as count
-      FROM mission
-      WHERE enroll_end_date IS NOT NULL
-        AND DATE(UTC_TIMESTAMP()) > DATE(enroll_end_date)
-        AND (SELECT COUNT(*)
-             FROM mission_enroll me
-             WHERE me.mission_id = mission.id
-               AND me.status IN ('selected', 'completed', 'rewarded')) = 0
-        AND (SELECT COUNT(*)
-             FROM mission_enroll me
-             WHERE me.mission_id = mission.id
-               AND me.status = 'applied') > 0
-    `);
-
-    const [inProgressResult] = await pool.query(`
-      SELECT COUNT(*) as count
-      FROM mission
-      WHERE mission_start_date IS NOT NULL AND mission_end_date IS NOT NULL
-              AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) >= DATE(CONVERT_TZ(mission_start_date, '+00:00', '+09:00'))
-              AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) <= DATE(CONVERT_TZ(mission_end_date, '+00:00', '+09:00'))
-    `);
+    const totalMissions = totalMissionsResult[0].count;
+    const ended = endedResult[0].count;
 
     return {
-      totalMissions: totalMissionsResult[0].count,
-      mustSelectToday: mustSelectTodayResult[0].count,
-      delayedEnrollments: delayedResult[0].count,
-      inProgress: inProgressResult[0].count,
+      totalMissions,
+      ended,
+      inProgress: totalMissions - ended, // 진행중 = 종료된 캠페인을 제외한 모두
     };
   } catch (e) {
     throw e;

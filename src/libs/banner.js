@@ -11,7 +11,7 @@ export const GetBannerList = async filters => {
     const currentPage = filters?.page ? parseInt(filters.page) : 1;
     const offset = (currentPage - 1) * itemsPerPage;
 
-    let query = `SELECT id, type, name, thumbnail_path AS thumbnailPath, link, \`order\`, is_active AS isActive, created, updated FROM banner`;
+    let query = `SELECT id, type, name, thumbnail_path AS thumbnailPath, link, link_type AS linkType, \`order\`, is_active AS isActive, created, updated FROM banner`;
     const queryParams = [];
     const conditions = [];
 
@@ -68,7 +68,7 @@ export const GetBannerList = async filters => {
 export const GetBannerById = async id => {
   try {
     const [data] = await pool.query(
-      `SELECT id, type, name, thumbnail_path AS thumbnailPath, link, \`order\`, is_active AS isActive, created, updated FROM banner WHERE id = ?`,
+      `SELECT id, type, name, thumbnail_path AS thumbnailPath, link, link_type AS linkType, \`order\`, is_active AS isActive, created, updated FROM banner WHERE id = ?`,
       [id],
     );
 
@@ -86,11 +86,11 @@ export const GetBannerById = async id => {
  * @param {string} link
  * @returns {Promise(insertId)}
  */
-export const InsertBanner = async (type, name, thumbnailPath, link, order = 0) => {
+export const InsertBanner = async (type, name, thumbnailPath, link, order = 0, linkType = 'url') => {
   try {
     const [result] = await pool.query(
-      `INSERT INTO banner (type, name, thumbnail_path, link, \`order\`) VALUES (?, ?, ?, ?, ?)`,
-      [type, name, thumbnailPath, link, order],
+      `INSERT INTO banner (type, name, thumbnail_path, link, \`order\`, link_type) VALUES (?, ?, ?, ?, ?, ?)`,
+      [type, name, thumbnailPath, link, order, linkType],
     );
 
     return result.insertId;
@@ -109,11 +109,11 @@ export const InsertBanner = async (type, name, thumbnailPath, link, order = 0) =
  * @param {string} isActive
  * @returns {Promise(affectedRows)}
  */
-export const ModifyBanner = async (id, type, name, thumbnailPath, link, order, isActive) => {
+export const ModifyBanner = async (id, type, name, thumbnailPath, link, order, isActive, linkType = 'url') => {
   try {
     const [result] = await pool.query(
-      `UPDATE banner SET type = ?, name = ?, thumbnail_path = ?, link = ?, \`order\` = ?, is_active = ? WHERE id = ?`,
-      [type, name, thumbnailPath, link, order, isActive, id],
+      `UPDATE banner SET type = ?, name = ?, thumbnail_path = ?, link = ?, \`order\` = ?, is_active = ?, link_type = ? WHERE id = ?`,
+      [type, name, thumbnailPath, link, order, isActive, linkType, id],
     );
 
     return result.affectedRows;

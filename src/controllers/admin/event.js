@@ -45,12 +45,16 @@ export const GetEventById = async (req, res, next) => {
  */
 export const CreateOrUpdateEvent = async (req, res, next) => {
   try {
-    const { id, name, thumbnailPath, link, isActive } = req.body;
+    const { id, name, thumbnailPath, link, isActive, linkType, contents, contentsCn } = req.body;
 
     // Validate required fields
     if (!name) {
       throw { status: 400, code: EC.INVALID_PARAMETER, message: 'Name is required' };
     }
+
+    // 'wechat' events open the member-page WeChat QR popup (no URL needed).
+    const eventLinkType = linkType === 'wechat' ? 'wechat' : 'url';
+    const eventLink = eventLinkType === 'wechat' ? null : link || null;
 
     if (id) {
       // Update existing event
@@ -59,11 +63,12 @@ export const CreateOrUpdateEvent = async (req, res, next) => {
         throw { status: 404, code: EC.NOT_FOUND, message: 'Event not found' };
       }
 
-      await Event.ModifyEvent(id, name, thumbnailPath || null, link || null, isActive || 'Y');
+      await Event.ModifyEvent(id, name, thumbnailPath || null, eventLink, isActive || 'Y', eventLinkType, contents || null, contentsCn || null);
       return res.status(200).json({ success: true, message: 'Event updated successfully' });
     } else {
-      // Create new event
-      const insertId = await Event.InsertEvent(name, thumbnailPath || null, link || null);
+      // Create new event - append to the end of the ordered list
+      const order = await Event.GetNextOrder();
+      const insertId = await Event.InsertEvent(name, thumbnailPath || null, eventLink, eventLinkType, contents || null, contentsCn || null, order);
       return res.status(201).json({ success: true, data: { id: insertId }, message: 'Event created successfully' });
     }
   } catch (e) {
@@ -115,6 +120,39 @@ export const ToggleEventActive = async (req, res, next) => {
     await Event.ToggleEventActive(id, isActive);
 
     return res.status(200).json({ success: true, message: 'Event status updated successfully' });
+  } catch (e) {
+    return next(e);
+  }
+};
+
+/**
+ * @function ReorderEvents
+ * @description Reorder events by updating their display order
+ * @returns {obj}
+ */
+export const ReorderEvents = async (req, res, next) => {
+  try {
+    const { events } = req.body;
+
+    // Validate input
+    if (!events || !Array.isArray(events) || events.length === 0) {
+      throw { status: 400, code: EC.INVALID_PARAMETER, message: 'Events array is required' };
+    }
+
+    for (const event of events) {
+      if (!event.id || event.order === undefined) {
+        throw { status: 400, code: EC.INVALID_PARAMETER, message: 'Each event must have id and order' };
+      }
+
+      const existingEvent = await Event.GetEventById(event.id);
+      if (!existingEvent) {
+        throw { status: 404, code: EC.NOT_FOUND, message: `Event with id ${event.id} not found` };
+      }
+    }
+
+    await Event.ReorderEvents(events);
+
+    return res.status(200).json({ success: true, message: 'Events reordered successfully' });
   } catch (e) {
     return next(e);
   }
