@@ -11,7 +11,7 @@ export const GetEventList = async filters => {
     const currentPage = filters?.page ? parseInt(filters.page) : 1;
     const offset = (currentPage - 1) * itemsPerPage;
 
-    let query = `SELECT id, name, thumbnail_path AS thumbnailPath, link, is_active AS isActive, created, updated FROM event`;
+    let query = `SELECT id, name, thumbnail_path AS thumbnailPath, link, link_type AS linkType, \`order\`, contents, contents_cn AS contentsCn, is_active AS isActive, created, updated FROM event`;
     const queryParams = [];
     const conditions = [];
 
@@ -25,7 +25,7 @@ export const GetEventList = async filters => {
       query += ' WHERE ' + conditions.join(' AND ');
     }
 
-    query += ' ORDER BY created DESC LIMIT ? OFFSET ?';
+    query += ' ORDER BY `order` ASC, id ASC LIMIT ? OFFSET ?';
     queryParams.push(itemsPerPage, offset);
 
     // Count query
@@ -62,7 +62,7 @@ export const GetEventList = async filters => {
 export const GetEventById = async id => {
   try {
     const [data] = await pool.query(
-      `SELECT id, name, thumbnail_path AS thumbnailPath, link, is_active AS isActive, created, updated FROM event WHERE id = ?`,
+      `SELECT id, name, thumbnail_path AS thumbnailPath, link, link_type AS linkType, \`order\`, contents, contents_cn AS contentsCn, is_active AS isActive, created, updated FROM event WHERE id = ?`,
       [id],
     );
 
@@ -79,13 +79,12 @@ export const GetEventById = async id => {
  * @param {string} link
  * @returns {Promise(insertId)}
  */
-export const InsertEvent = async (name, thumbnailPath, link) => {
+export const InsertEvent = async (name, thumbnailPath, link, linkType = 'url', contents = null, contentsCn = null, order = 0) => {
   try {
-    const [result] = await pool.query(`INSERT INTO event (name, thumbnail_path, link) VALUES (?, ?, ?)`, [
-      name,
-      thumbnailPath,
-      link,
-    ]);
+    const [result] = await pool.query(
+      `INSERT INTO event (name, thumbnail_path, link, link_type, contents, contents_cn, \`order\`) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [name, thumbnailPath, link, linkType, contents, contentsCn, order],
+    );
 
     return result.insertId;
   } catch (e) {
@@ -102,11 +101,11 @@ export const InsertEvent = async (name, thumbnailPath, link) => {
  * @param {string} isActive
  * @returns {Promise(affectedRows)}
  */
-export const ModifyEvent = async (id, name, thumbnailPath, link, isActive) => {
+export const ModifyEvent = async (id, name, thumbnailPath, link, isActive, linkType = 'url', contents = null, contentsCn = null) => {
   try {
     const [result] = await pool.query(
-      `UPDATE event SET name = ?, thumbnail_path = ?, link = ?, is_active = ? WHERE id = ?`,
-      [name, thumbnailPath, link, isActive, id],
+      `UPDATE event SET name = ?, thumbnail_path = ?, link = ?, is_active = ?, link_type = ?, contents = ?, contents_cn = ? WHERE id = ?`,
+      [name, thumbnailPath, link, isActive, linkType, contents, contentsCn, id],
     );
 
     return result.affectedRows;
@@ -141,6 +140,44 @@ export const ToggleEventActive = async (id, isActive) => {
     const [result] = await pool.query(`UPDATE event SET is_active = ? WHERE id = ?`, [isActive, id]);
 
     return result.affectedRows;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * @function ReorderEvents
+ * @param {Array} eventOrders - Array of {id, order} objects
+ * @returns {Promise(boolean)}
+ */
+export const ReorderEvents = async eventOrders => {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    for (const event of eventOrders) {
+      await conn.query(`UPDATE event SET \`order\` = ? WHERE id = ?`, [event.order, event.id]);
+    }
+
+    await conn.commit();
+    return true;
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
+  }
+};
+
+/**
+ * @function GetNextOrder
+ * @returns {Promise(number)} Next available order
+ */
+export const GetNextOrder = async () => {
+  try {
+    const [result] = await pool.query(`SELECT COALESCE(MAX(\`order\`), 0) + 1 AS nextOrder FROM event`);
+
+    return result[0].nextOrder;
   } catch (e) {
     throw e;
   }

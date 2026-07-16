@@ -45,7 +45,7 @@ export const GetBannerById = async (req, res, next) => {
  */
 export const CreateOrUpdateBanner = async (req, res, next) => {
   try {
-    const { id, type, name, thumbnailPath, link, order, isActive } = req.body;
+    const { id, type, name, thumbnailPath, link, order, isActive, linkType } = req.body;
 
     // Validate required fields
     if (!type || !['home', 'right_banner'].includes(type)) {
@@ -56,6 +56,10 @@ export const CreateOrUpdateBanner = async (req, res, next) => {
       throw { status: 400, code: EC.INVALID_PARAMETER, message: 'Name and thumbnail path are required' };
     }
 
+    // 'wechat' banners open the member-page WeChat QR popup (no URL needed).
+    const bannerLinkType = linkType === 'wechat' ? 'wechat' : 'url';
+    const bannerLink = bannerLinkType === 'wechat' ? null : link || null;
+
     if (id) {
       // Update existing banner
       const existingBanner = await Banner.GetBannerById(id);
@@ -63,12 +67,12 @@ export const CreateOrUpdateBanner = async (req, res, next) => {
         throw { status: 404, code: EC.NOT_FOUND, message: 'Banner not found' };
       }
 
-      await Banner.ModifyBanner(id, type, name, thumbnailPath, link || null, order ?? existingBanner.order, isActive || 'Y');
+      await Banner.ModifyBanner(id, type, name, thumbnailPath, bannerLink, order ?? existingBanner.order, isActive || 'Y', bannerLinkType);
       return res.status(200).json({ success: true, message: 'Banner updated successfully' });
     } else {
       // Create new banner - get next order if not provided (only for home type)
       const bannerOrder = type === 'home' ? (order ?? await Banner.GetNextOrder(type)) : (order ?? 0);
-      const insertId = await Banner.InsertBanner(type, name, thumbnailPath, link || null, bannerOrder);
+      const insertId = await Banner.InsertBanner(type, name, thumbnailPath, bannerLink, bannerOrder, bannerLinkType);
       return res.status(201).json({ success: true, data: { id: insertId }, message: 'Banner created successfully' });
     }
   } catch (e) {
