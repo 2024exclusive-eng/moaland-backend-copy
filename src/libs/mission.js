@@ -1,6 +1,15 @@
 import pool from '../utils/pool.js';
 
 /**
+ * P34: 홈 섹션별 고정 슬롯 컬럼. 값이 컬럼명으로 쿼리에 들어가므로
+ * 반드시 이 화이트리스트를 통해서만 사용한다.
+ */
+export const PIN_COLUMNS = {
+  new: 'pin_new',
+  deadline: 'pin_deadline',
+};
+
+/**
  * @function GetMissionList
  * @param {obj} filters - 페이지네이션 및 필터링을 위한 파라미터 (page, item, category, social)
  * @returns {Promise([obj] | null)} {missionData, paging}
@@ -86,10 +95,15 @@ export const GetMissionList = async filters => {
     }
 
     // 정렬 옵션
+    // P34: pin=new|deadline 이면 고정 슬롯이 먼저 오도록 정렬한다.
+    // 하나의 쿼리로 정렬하므로 고정된 캠페인이 아래 자동정렬 목록에 중복 노출되지 않는다.
+    const pinColumn = PIN_COLUMNS[filters.pin];
+    const pinOrder = pinColumn ? `mission.${pinColumn} IS NULL, mission.${pinColumn} ASC, ` : '';
+
     if (filters.sort === 'deadline') {
-      query += ' ORDER BY mission.enroll_end_date ASC';
+      query += ` ORDER BY ${pinOrder}mission.enroll_end_date ASC`;
     } else {
-      query += ' ORDER BY mission.id DESC';
+      query += ` ORDER BY ${pinOrder}mission.id DESC`;
     }
 
     query += ' LIMIT ? OFFSET ?';
@@ -1001,5 +1015,62 @@ export const GetMissionFilterCounts = async () => {
     };
   } catch (e) {
     throw e;
+  }
+};
+
+/**
+ * @function GetPinnedMissions
+ * @description 섹션에 고정된 캠페인 목록 (슬롯 순서대로)
+ * @param {string} section - 'new' | 'deadline'
+ * @returns {Promise([obj])}
+ */
+export const GetPinnedMissions = async section => {
+  const column = PIN_COLUMNS[section];
+  if (!column) throw new Error(`Invalid pin section: ${section}`);
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, title, brand, thumbnail_img AS thumbnailImg, \`${column}\` AS pinOrder
+       FROM mission
+       WHERE \`${column}\` IS NOT NULL
+       ORDER BY \`${column}\` ASC`,
+    );
+
+    return rows;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * @function SetPinnedMissions
+ * @description 섹션의 고정 슬롯을 통째로 교체한다. 배열 순서가 곧 슬롯 순서이고,
+ *              목록에 없는 캠페인은 고정 해제되어 자동정렬로 돌아간다.
+ * @param {string} section - 'new' | 'deadline'
+ * @param {Array<number>} missionIds - 고정할 미션 id (순서대로)
+ * @returns {Promise(boolean)}
+ */
+export const SetPinnedMissions = async (section, missionIds) => {
+  const column = PIN_COLUMNS[section];
+  if (!column) throw new Error(`Invalid pin section: ${section}`);
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // 기존 고정 전체 해제 후 새 순서로 다시 지정 (교체 방식)
+    await conn.query(`UPDATE mission SET \`${column}\` = NULL WHERE \`${column}\` IS NOT NULL`);
+
+    for (let i = 0; i < missionIds.length; i++) {
+      await conn.query(`UPDATE mission SET \`${column}\` = ? WHERE id = ?`, [i + 1, missionIds[i]]);
+    }
+
+    await conn.commit();
+    return true;
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
   }
 };

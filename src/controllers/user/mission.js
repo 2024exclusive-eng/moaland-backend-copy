@@ -11,8 +11,8 @@ import { isEmpty, getKSTDate, getKSTDateOnly, getKSTEndOfDay } from '../../utils
  */
 export const GetMissionList = async (req, res, next) => {
   try {
-    const { page, item, category, social, is_recommended, deadline_days, sort, region, search } = req.query;
-    const data = await Mission.GetMissionList({ page, item, category, social, is_recommended, search, deadline_days, sort, region });
+    const { page, item, category, social, is_recommended, deadline_days, sort, region, search, pin } = req.query;
+    const data = await Mission.GetMissionList({ page, item, category, social, is_recommended, search, deadline_days, sort, region, pin });
 
     return res.status(200).json({ success: true, data });
   } catch (e) {

@@ -1,3 +1,4 @@
+import EC from '../../utils/error.js';
 import * as Mission from '../../libs/mission.js';
 import * as MissionEnroll from '../../libs/missionEnroll.js';
 
@@ -180,6 +181,53 @@ export const GetMissionFilterCounts = async (req, res, next) => {
     const counts = await Mission.GetMissionFilterCounts();
 
     return res.status(200).json({ success: true, counts });
+  } catch (e) {
+    return next(e);
+  }
+};
+
+/**
+ * @function GetPinnedMissions
+ * @description 섹션 고정 슬롯 목록 조회 (P34)
+ * @returns {obj}
+ */
+export const GetPinnedMissions = async (req, res, next) => {
+  try {
+    const { section } = req.params;
+
+    if (!Mission.PIN_COLUMNS[section]) {
+      throw { status: 400, code: EC.INVALID_PARAMETER, message: 'Invalid section (new | deadline)' };
+    }
+
+    const data = await Mission.GetPinnedMissions(section);
+
+    return res.status(200).json({ success: true, data });
+  } catch (e) {
+    return next(e);
+  }
+};
+
+/**
+ * @function SetPinnedMissions
+ * @description 섹션 고정 슬롯을 통째로 교체 (배열 순서 = 슬롯 순서). 목록에 없으면 고정 해제. (P34)
+ * @returns {obj}
+ */
+export const SetPinnedMissions = async (req, res, next) => {
+  try {
+    const { section } = req.params;
+    const { missionIds } = req.body;
+
+    if (!Mission.PIN_COLUMNS[section]) {
+      throw { status: 400, code: EC.INVALID_PARAMETER, message: 'Invalid section (new | deadline)' };
+    }
+
+    if (!Array.isArray(missionIds) || missionIds.some(id => !Number.isInteger(Number(id)))) {
+      throw { status: 400, code: EC.INVALID_PARAMETER, message: 'missionIds must be an array of mission ids' };
+    }
+
+    await Mission.SetPinnedMissions(section, missionIds.map(Number));
+
+    return res.status(200).json({ success: true, message: 'Pinned missions updated successfully' });
   } catch (e) {
     return next(e);
   }
