@@ -574,6 +574,17 @@ export const GetMissionListByStatus = async (filters = {}) => {
                (SELECT COUNT(mission_enroll.id)
                 FROM mission_enroll
                 WHERE mission_enroll.mission_id = mission.id) AS enrollCount,
+               -- P36: 임의 등록한 숫자가 있으면 그 숫자를 노출한다
+               COALESCE(mission.manual_enroll_count,
+                        (SELECT COUNT(mission_enroll.id)
+                         FROM mission_enroll
+                         WHERE mission_enroll.mission_id = mission.id)) AS displayEnrollCount,
+               mission.manual_enroll_count AS manualEnrollCount,
+               -- P35: 관리자가 확인한 이후로 신청이 늘었으면 빨간색으로 표기한다
+               ((SELECT COUNT(mission_enroll.id)
+                 FROM mission_enroll
+                 WHERE mission_enroll.mission_id = mission.id)
+                > COALESCE(mission.enroll_seen_count, 0)) AS hasNewApplication,
                (SELECT COUNT(DISTINCT mission_enroll.id)
                 FROM mission_enroll
                 WHERE mission_enroll.mission_id = mission.id
@@ -1072,5 +1083,52 @@ export const SetPinnedMissions = async (section, missionIds) => {
     throw e;
   } finally {
     conn.release();
+  }
+};
+
+
+/**
+ * @function MarkEnrollSeen
+ * @description 관리자가 캠페인 상세를 열었을 때 현재 신청 수를 '확인함'으로 기록한다.
+ *              이후 신청이 더 들어오기 전까지 리스트에서 빨간색 표기가 사라진다. (P35)
+ * @param {number} missionId
+ * @returns {Promise(affectedRows)}
+ */
+export const MarkEnrollSeen = async missionId => {
+  try {
+    const [result] = await pool.query(
+      `UPDATE mission
+          SET enroll_seen_count = (SELECT COUNT(id) FROM mission_enroll WHERE mission_id = ?)
+        WHERE id = ?`,
+      [missionId, missionId],
+    );
+
+    return result.affectedRows;
+  } catch (e) {
+    throw e;
+  }
+};
+
+/**
+ * @function SetManualEnrollCount
+ * @description 노출용 신청자 수를 임의로 지정한다. null 이면 실제 신청 수로 돌아간다. (P36)
+ *              같이 '확인함'도 갱신해서, 임의 변경 자체가 빨간색을 유발하지 않게 한다.
+ * @param {number} missionId
+ * @param {number|null} count
+ * @returns {Promise(affectedRows)}
+ */
+export const SetManualEnrollCount = async (missionId, count) => {
+  try {
+    const [result] = await pool.query(
+      `UPDATE mission
+          SET manual_enroll_count = ?,
+              enroll_seen_count = (SELECT COUNT(id) FROM mission_enroll WHERE mission_id = ?)
+        WHERE id = ?`,
+      [count, missionId, missionId],
+    );
+
+    return result.affectedRows;
+  } catch (e) {
+    throw e;
   }
 };

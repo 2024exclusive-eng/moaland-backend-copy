@@ -63,6 +63,9 @@ export const GetMissionDetail = async (req, res, next) => {
     const mission = await Mission.GetMissionByMissionId(id);
     const enrollUser = await MissionEnroll.GetUsersByMissionId(id);
 
+    // P35: 상세를 열었다 = 신청 건을 확인했다. 리스트의 빨간색 표기를 해제한다.
+    await Mission.MarkEnrollSeen(id);
+
     const enrollUsersByStatus = enrollUser.reduce((acc, user) => {
       if (!acc[user.status]) {
         acc[user.status] = [];
@@ -228,6 +231,37 @@ export const SetPinnedMissions = async (req, res, next) => {
     await Mission.SetPinnedMissions(section, missionIds.map(Number));
 
     return res.status(200).json({ success: true, message: 'Pinned missions updated successfully' });
+  } catch (e) {
+    return next(e);
+  }
+};
+
+/**
+ * @function SetManualEnrollCount
+ * @description 캠페인 리스트에 노출할 신청자 수를 임의로 지정/해제한다. (P36)
+ *              count 가 null 이면 실제 신청 수 표기로 되돌린다.
+ * @returns {obj}
+ */
+export const SetManualEnrollCount = async (req, res, next) => {
+  try {
+    const { missionId } = req.params;
+    const { count } = req.body;
+
+    // null / '' 은 '임의 지정 해제'로 다룬다
+    const manualCount = count === null || count === undefined || count === '' ? null : Number(count);
+
+    if (manualCount !== null && (!Number.isInteger(manualCount) || manualCount < 0)) {
+      throw { status: 400, code: EC.INVALID_PARAMETER, message: 'count must be a non-negative integer or null' };
+    }
+
+    const mission = await Mission.GetMissionByMissionId(missionId);
+    if (!mission) {
+      throw { status: 404, code: EC.NOT_FOUND, message: 'Mission not found' };
+    }
+
+    await Mission.SetManualEnrollCount(missionId, manualCount);
+
+    return res.status(200).json({ success: true, message: 'Enroll count updated successfully' });
   } catch (e) {
     return next(e);
   }
