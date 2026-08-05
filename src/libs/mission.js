@@ -35,9 +35,12 @@ export const GetMissionList = async filters => {
              mission.title_cn AS titleCn,
              mission.thumbnail_img AS thumbnailImg,
              mission.is_recommended AS isRecommended,
-             (SELECT COUNT(mission_enroll.id)
-              FROM mission_enroll
-              WHERE mission_enroll.mission_id = mission.id) AS enrollCount
+             -- P36: 관리자가 임의로 지정한 숫자가 있으면 그 숫자를 노출한다.
+             -- 저장 시 모집 인원 이하로 제한하므로 여기서는 그대로 쓴다.
+             COALESCE(mission.manual_enroll_count,
+                      (SELECT COUNT(mission_enroll.id)
+                       FROM mission_enroll
+                       WHERE mission_enroll.mission_id = mission.id)) AS enrollCount
       FROM mission
     `;
 
@@ -176,9 +179,15 @@ export const GetMissionByMissionId = async missionId => {
               mission.guideline AS guideline,
               mission.guideline_cn AS guidelineCn,
               mission.is_recommended AS isRecommended,
+              -- P36: 관리자가 임의로 지정한 숫자가 있으면 그 숫자를 노출한다 (저장 시 모집 인원 이하로 제한).
+              --       신청 가능 여부는 이 값이 아니라 실제 신청 수로 판단한다 (controllers/user/mission.js).
+              COALESCE(mission.manual_enroll_count,
+                       (SELECT COUNT(mission_enroll.id)
+                        FROM mission_enroll
+                        WHERE mission_enroll.mission_id = mission.id)) AS enrollCount,
               (SELECT COUNT(mission_enroll.id)
                FROM mission_enroll
-               WHERE mission_enroll.mission_id = mission.id) AS enrollCount,
+               WHERE mission_enroll.mission_id = mission.id) AS realEnrollCount,
               (SELECT COUNT(DISTINCT mission_enroll.id)
                FROM mission_enroll
                WHERE mission_enroll.mission_id = mission.id

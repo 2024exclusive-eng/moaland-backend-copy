@@ -50,11 +50,13 @@ await openDetail();                       // 확인 상태로 초기화
 check('확인 직후에는 빨간색이 아니다', !(await row()).hasNewApplication);
 
 const real = (await row()).enrollCount;
+const maxEnroll = (await row()).maxEnroll;
+const bumped = maxEnroll;                   // 모집 인원까지가 올릴 수 있는 최대치
 check('임의 등록 전에는 실제 신청 수를 노출한다', (await row()).displayEnrollCount === real);
 
-await setManual(real + 40);
+await setManual(bumped);
 const afterManual = await row();
-check('임의 등록한 숫자가 노출된다', afterManual.displayEnrollCount === real + 40);
+check('임의 등록한 숫자가 노출된다', afterManual.displayEnrollCount === bumped);
 check('임의 등록 자체는 빨간색을 유발하지 않는다', !afterManual.hasNewApplication);
 
 await setManual(null);
@@ -64,14 +66,29 @@ check('임의 등록을 해제하면 실제 신청 수로 돌아온다', (await 
 await setSeen(real - 1);                  // 확인하지 않은 신청 1건이 있는 상태
 check('확인하지 않은 신청이 있으면 빨간색이다', !!(await row()).hasNewApplication);
 
-await setManual(real + 40);
+await setManual(bumped);
 const stillRed = await row();
 check('빨간 상태에서 임의 등록해도 빨간색이 유지된다', !!stillRed.hasNewApplication);
-check('그 상태에서도 임의 등록한 숫자를 노출한다', stillRed.displayEnrollCount === real + 40);
+check('그 상태에서도 임의 등록한 숫자를 노출한다', stillRed.displayEnrollCount === bumped);
 
 await openDetail();                       // 빨간색을 지우는 것은 상세를 여는 것 뿐이다
 check('상세를 열어야만 빨간색이 해제된다', !(await row()).hasNewApplication);
 
+// 사용자 화면 노출 (2026-08-05): 임의 등록한 숫자가 사용자 목록/상세에도 나와야 한다.
+// 단 모집 인원을 넘으면 '신청 50/15' 처럼 보이므로 저장 시 모집 인원으로 제한한다.
+const userRow = async () => {
+  const r = await j(`${BASE}/user/mission/info?item=100`);
+  return (r.data?.data || []).find(m => m.missionId === MISSION);
+};
+await setManual(maxEnroll - 1);
+check('사용자 목록에도 임의 등록한 숫자가 노출된다', (await userRow())?.enrollCount === maxEnroll - 1);
+
+await setManual(maxEnroll + 1000);
+check('모집 인원을 넘겨 저장하면 모집 인원으로 제한된다', (await row()).displayEnrollCount === maxEnroll);
+check('사용자 화면에도 제한된 숫자가 노출된다', (await userRow())?.enrollCount === maxEnroll);
+
 await setManual(null);
+check('해제하면 사용자 화면도 실제 신청 수로 돌아온다', (await userRow())?.enrollCount === real);
+
 await db.end();
 process.exit(failed ? 1 : 0);

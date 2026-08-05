@@ -259,9 +259,16 @@ export const SetManualEnrollCount = async (req, res, next) => {
       throw { status: 404, code: EC.NOT_FOUND, message: 'Mission not found' };
     }
 
-    await Mission.SetManualEnrollCount(missionId, manualCount);
+    // 이 숫자는 사용자 화면에도 그대로 노출되므로 모집 인원을 넘지 않게 제한한다.
+    // (넘기면 사용자에게 '신청 50/15' 처럼 보인다)
+    const capped =
+      manualCount !== null && mission.maxEnroll > 0
+        ? Math.min(manualCount, mission.maxEnroll)
+        : manualCount;
 
-    return res.status(200).json({ success: true, message: 'Enroll count updated successfully' });
+    await Mission.SetManualEnrollCount(missionId, capped);
+
+    return res.status(200).json({ success: true, count: capped, message: 'Enroll count updated successfully' });
   } catch (e) {
     return next(e);
   }
