@@ -1112,7 +1112,9 @@ export const MarkEnrollSeen = async missionId => {
 /**
  * @function SetManualEnrollCount
  * @description 노출용 신청자 수를 임의로 지정한다. null 이면 실제 신청 수로 돌아간다. (P36)
- *              같이 '확인함'도 갱신해서, 임의 변경 자체가 빨간색을 유발하지 않게 한다.
+ *              '확인함'(enroll_seen_count)은 건드리지 않는다. 빨간색은 '확인하지 않은 새 신청'만
+ *              나타내므로, 상세를 열기 전에 숫자만 바꿨다면 빨간색이 그대로 유지되어야 한다.
+ *              숫자를 바꾸는 것만으로 빨간색이 생기지도 않는다 — 빨간색 판정에 이 값은 쓰이지 않는다.
  * @param {number} missionId
  * @param {number|null} count
  * @returns {Promise(affectedRows)}
@@ -1120,11 +1122,8 @@ export const MarkEnrollSeen = async missionId => {
 export const SetManualEnrollCount = async (missionId, count) => {
   try {
     const [result] = await pool.query(
-      `UPDATE mission
-          SET manual_enroll_count = ?,
-              enroll_seen_count = (SELECT COUNT(id) FROM mission_enroll WHERE mission_id = ?)
-        WHERE id = ?`,
-      [count, missionId, missionId],
+      `UPDATE mission SET manual_enroll_count = ? WHERE id = ?`,
+      [count, missionId],
     );
 
     return result.affectedRows;
