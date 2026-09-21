@@ -14,7 +14,7 @@ export const Login = async (req, res, next) => {
 
     // 사용자 확인
     const user = await Admin.GetAdminOneById(admin);
-    if (!user || !bcrypt.compareSync(pw, user.pw))
+    if (!user || !Number(user.isActive) || typeof pw !== 'string' || !bcrypt.compareSync(pw, user.pw))
       return res.status(200).json({ success: false, error: EC('ADMIN_AUTH_NOT_MATCH_INFO') });
 
     delete user.pw
@@ -25,6 +25,7 @@ export const Login = async (req, res, next) => {
         service: "ADMIN",
         tokenType: "ACCESSTOKEN",
         id: user.id,
+        tokenVersion: user.tokenVersion,
       }
     );
 

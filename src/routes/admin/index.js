@@ -1,3 +1,5 @@
+import accountsRoute from './accounts.js';
+import {SuperAdminOnly} from '../../middlewares/adminAccess.js';
 import express from 'express';
 
 import authRoute from './auth.js';
@@ -30,12 +32,13 @@ route.use('/auth', authRoute);
 
 // // 인증 이후
 route.use(AdminLoginCheck);
+route.use('/accounts', accountsRoute);
 route.use('/mission', missionRoute);
-route.use('/manage', manageRoute);
-route.use('/notice', noticeRoute);
-route.use('/banner', bannerRoute);
-route.use('/event', eventRoute);
-route.use('/faq', faqRoute);
+route.use('/manage', SuperAdminOnly, manageRoute);
+route.use('/notice', SuperAdminOnly, noticeRoute);
+route.use('/banner', SuperAdminOnly, bannerRoute);
+route.use('/event', SuperAdminOnly, eventRoute);
+route.use('/faq', SuperAdminOnly, faqRoute);
 route.use('/translate', translateRoute);
 route.post('/image', AdminLoginCheck, uploadStorage.single("file"), upload.UploadUserImage); // 업로드 이미지
 

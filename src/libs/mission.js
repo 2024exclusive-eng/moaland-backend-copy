@@ -23,11 +23,15 @@ export const GetMissionList = async filters => {
     let query = `
       SELECT mission.id AS missionId,
              mission.category AS category,
+              mission.is_public AS isPublic,
+              mission.is_wechat_public AS isWechatPublic,
              mission.enroll_start_date AS enrollStartDate,
              mission.enroll_end_date AS enrollEndDate,
              mission.social AS social,
              mission.max_enroll AS maxEnroll,
              mission.point AS point,
+             mission.goods_contents AS goodsContents,
+             mission.goods_contents_cn AS goodsContentsCn,
              mission.mission_contents AS missionContent,
              mission.mission_contents_cn AS missionContentCn,
              mission.brand AS brand,
@@ -49,6 +53,10 @@ export const GetMissionList = async filters => {
 
     // is_public 필터 (기본값: 공개된 미션만 조회)
     conditions.push('mission.is_public = 1');
+    if (filters.channel === 'wechat_mp') {
+      conditions.push("mission.is_wechat_public = 1 AND mission.category NOT IN ('Hospital', 'Massage')");
+      if (filters.updatedSince && !Number.isNaN(Date.parse(filters.updatedSince))) { conditions.push('mission.updated >= ?'); queryParams.push(new Date(filters.updatedSince)); }
+    }
 
     // category 필터 추가
     if (filters.category) {
@@ -88,8 +96,8 @@ export const GetMissionList = async filters => {
 
     // search 필터 추가 (title, brand 검색)
     if (filters.search) {
-      conditions.push('(mission.title LIKE ? OR mission.brand LIKE ?)');
-      queryParams.push(`%${filters.search}%`, `%${filters.search}%`);
+      conditions.push('(mission.title LIKE ? OR mission.brand LIKE ? OR mission.title_cn LIKE ?)');
+      queryParams.push(`%${filters.search}%`, `%${filters.search}%`, `%${filters.search}%`);
     }
 
     // 필터 조건이 있을 경우 WHERE 절 추가
@@ -143,11 +151,13 @@ export const GetMissionList = async filters => {
  * @param {obj} missionId
  * @returns {Promise([obj] | null)}
  */
-export const GetMissionByMissionId = async missionId => {
+export const GetMissionByMissionId = async (missionId, conn = pool) => {
   try {
-    const [missionDetail] = await pool.query(
+    const [missionDetail] = await conn.query(
       `SELECT mission.id AS missionId,
               mission.category AS category,
+              mission.is_public AS isPublic,
+              mission.is_wechat_public AS isWechatPublic,
               mission.enroll_start_date AS enrollStartDate,
               mission.enroll_end_date AS enrollEndDate,
               mission.select_date AS selectDate,
@@ -255,7 +265,7 @@ export const DeleteMission = async missionId => {
  * @param {obj} missionData - 생성할 미션의 데이터
  * @returns {Promise<number>} 생성된 미션의 ID
  */
-export const InsertMission = async missionData => {
+export const InsertMission = async (missionData, db = pool) => {
   try {
     const {
       category,
@@ -292,7 +302,7 @@ export const InsertMission = async missionData => {
       isRecommended,
     } = missionData;
 
-    const [result] = await pool.query(
+    const [result] = await db.query(
       `INSERT INTO mission (
         category, enroll_start_date, enroll_end_date, select_date, payment_date,
         mission_start_date, mission_end_date, content_start_date, content_end_date,
@@ -560,7 +570,11 @@ export const GetMissionListByStatus = async (filters = {}) => {
       SELECT mission_with_status.*
       FROM (
         SELECT mission.id AS missionId,
+               mission.owner_admin_id AS ownerAdminId,
+               mission.owner_admin_id AS scopeOwnerAdminId,
                mission.category AS category,
+              mission.is_public AS isPublic,
+              mission.is_wechat_public AS isWechatPublic,
                mission.enroll_start_date AS enrollStartDate,
                mission.enroll_end_date AS enrollEndDate,
                mission.content_start_date AS contentStartDate,
@@ -698,7 +712,10 @@ export const GetMissionListByStatus = async (filters = {}) => {
                    THEN 'completed'
                  ELSE 'in_selection'
                END AS computed_selection_status,
+               mission.owner_admin_id AS scopeOwnerAdminId,
                mission.category AS category,
+              mission.is_public AS isPublic,
+              mission.is_wechat_public AS isWechatPublic,
                mission.social AS social,
                mission.region AS region,
                mission.title AS title,
@@ -712,6 +729,8 @@ export const GetMissionListByStatus = async (filters = {}) => {
     const conditions = [];
     const queryParams = [];
     const countParams = [];
+
+    if (filters.ownerAdminId != null) { conditions.push('mission_with_status.scopeOwnerAdminId = ?'); queryParams.push(filters.ownerAdminId); countParams.push(filters.ownerAdminId); }
 
     // Status filter (Mission lifecycle) - using computed status
     if (filters.status) {
@@ -854,22 +873,22 @@ export const UpdateRecommendedMission = async (missionId, isRecommended) => {
  *
  * Note: Counts are independent. A mission can be counted in both 'delayed' AND 'inProgress'.
  */
-export const GetMissionStatistics = async () => {
+export const GetMissionStatistics = async (ownerAdminId = null) => {
   try {
     // P33: three metrics — 총 캠페인, 종료된 캠페인, 진행중(= 총 − 종료).
     const [totalMissionsResult] = await pool.query(`
       SELECT COUNT(*) as count
-      FROM mission
-    `);
+      FROM mission WHERE (? IS NULL OR owner_admin_id=?)
+    `,[ownerAdminId,ownerAdminId]);
 
     // "종료된 캠페인": content_end 과 enroll_end 이 모두 지난 미션 (list/filter의 'end' 규칙과 동일)
     const [endedResult] = await pool.query(`
       SELECT COUNT(*) as count
       FROM mission
-      WHERE content_end_date IS NOT NULL AND enroll_end_date IS NOT NULL
+      WHERE (? IS NULL OR owner_admin_id=?) AND content_end_date IS NOT NULL AND enroll_end_date IS NOT NULL
         AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(content_end_date, '+00:00', '+09:00'))
         AND DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+09:00')) > DATE(CONVERT_TZ(enroll_end_date, '+00:00', '+09:00'))
-    `);
+    `,[ownerAdminId,ownerAdminId]);
 
     const totalMissions = totalMissionsResult[0].count;
     const ended = endedResult[0].count;
@@ -889,7 +908,7 @@ export const GetMissionStatistics = async () => {
  * @description Get counts for all filter options to display in the UI
  * @returns {Promise<obj>} Object with counts for each filter category
  */
-export const GetMissionFilterCounts = async () => {
+export const GetMissionFilterCounts = async (ownerAdminId = null) => {
   try {
     // Status counts - mirroring frontend cascading priority logic
     const [statusCounts] = await pool.query(`
@@ -947,9 +966,9 @@ export const GetMissionFilterCounts = async () => {
             -- Default: 오픈예정 (Opening Soon)
             ELSE 'opening_soon'
           END AS status
-        FROM mission
+        FROM mission WHERE (? IS NULL OR owner_admin_id=?)
       ) AS mission_statuses
-    `);
+    `,[ownerAdminId,ownerAdminId]);
 
     // Selection status counts - based on applicant selection headcount
     const [selectionStatusCounts] = await pool.query(`
@@ -970,25 +989,25 @@ export const GetMissionFilterCounts = async () => {
               THEN 'completed'
             ELSE 'in_selection'
           END AS selection_status
-        FROM mission
+        FROM mission WHERE (? IS NULL OR owner_admin_id=?)
       ) AS mission_selection_statuses
-    `);
+    `,[ownerAdminId,ownerAdminId]);
 
     // Region counts
     const [regionCounts] = await pool.query(`
       SELECT region, COUNT(*) as count
       FROM mission
-      WHERE region IS NOT NULL
+      WHERE (? IS NULL OR owner_admin_id=?) AND region IS NOT NULL
       GROUP BY region
-    `);
+    `,[ownerAdminId,ownerAdminId]);
 
     // Category counts
     const [categoryCounts] = await pool.query(`
       SELECT category, COUNT(*) as count
       FROM mission
-      WHERE category IS NOT NULL
+      WHERE (? IS NULL OR owner_admin_id=?) AND category IS NOT NULL
       GROUP BY category
-    `);
+    `,[ownerAdminId,ownerAdminId]);
 
     // Social counts (using FIND_IN_SET)
     const socialPlatforms = ['Xiaohongshu', 'Douyin', 'Dajongdienping', 'Instagram', 'YouTube'];
@@ -998,8 +1017,8 @@ export const GetMissionFilterCounts = async () => {
       const [result] = await pool.query(`
         SELECT COUNT(*) as count
         FROM mission
-        WHERE FIND_IN_SET(?, social) > 0
-      `, [platform]);
+        WHERE FIND_IN_SET(?, social) > 0 AND (? IS NULL OR owner_admin_id=?)
+      `, [platform,ownerAdminId,ownerAdminId]);
       socialCounts[platform] = result[0].count;
     }
 

@@ -1,3 +1,4 @@
+import { notifyRelay } from '../../utils/wechat.js';
 import pool from '../../utils/pool.js';
 import EC from '../../utils/error.js';
 import * as Notice from '../../libs/notice.js';
@@ -46,8 +47,10 @@ export const PostNotice = async (req, res, next) => {
 
     if (id) {
       await Notice.ModifyNotice(id, title, titleCn, contents, contentsCn);
+    await notifyRelay('content.changed');
     } else {
       await Notice.InsertNotice(title, titleCn, contents, contentsCn);
+    await notifyRelay('content.changed');
     }
 
     return res.status(200).json({ success: true });
@@ -65,6 +68,7 @@ export const DeleteNotice = async (req, res, next) => {
   try {
     const { id } = req.params;
     await Notice.DeleteNotice(id);
+    await notifyRelay('content.changed');
 
     return res.status(200).json({ success: true });
   } catch (e) {

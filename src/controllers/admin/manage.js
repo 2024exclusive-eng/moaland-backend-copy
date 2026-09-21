@@ -9,7 +9,7 @@ import * as MissionEnroll from '../../libs/missionEnroll.js';
 export const GetUserList = async (req, res, next) => {
   try {
     const { page, item, search } = req.query;
-    const data = await User.GetUserList({ page, item }, search);
+    const data = await User.GetUserList({ page, item }, search, req.query.signup_channel);
 
     return res.status(200).json({ success: true, data });
   } catch (e) {

@@ -1,3 +1,4 @@
+import { isWechatVisible, mpError, checkMpText } from '../../utils/wechat.js';
 import pool from '../../utils/pool.js';
 import EC from '../../utils/error.js';
 import * as Mission from '../../libs/mission.js';
@@ -49,7 +50,7 @@ export const GetMyMissionList = async (req, res, next) => {
     const userId = req.decoded.id;
     const { page, item, type } = req.query;
 
-    const myMissionList = await MissionEnroll.GetMissionListByUserId({ userId, page, item, type });
+    const myMissionList = await MissionEnroll.GetMissionListByUserId({ userId, page, item, type, channel: req.clientChannel });
 
     return res.status(200).json({ success: true, data: myMissionList });
   } catch (e) {
@@ -63,6 +64,7 @@ export const GetMyMissionList = async (req, res, next) => {
  * @returns {obj}
  */
 export const EnrollMission = async (req, res, next) => {
+  let conn;
   try {
     const { missionId } = req.params;
     const userId = req.decoded.id;
@@ -75,15 +77,33 @@ export const EnrollMission = async (req, res, next) => {
     if (isEmpty(visitDatetimeStart)) return res.status(200).json({ success: false, error: EC('MISSION_NEED_VISIT_DATE') });
     if (isEmpty(visitDatetimeEnd)) return res.status(200).json({ success: false, error: EC('MISSION_NEED_VISIT_DATE') });
 
+    if (req.clientChannel === 'wechat_mp') {
+      if (req.body.crossborderConsent !== true) return mpError(res, 'MISSION_NEED_CONSENT');
+      if (typeof memo !== 'undefined' && (typeof memo !== 'string' || memo.length > 200)) return mpError(res, 'INVALID_MEMO');
+      if (![name, instagramLink, wechatId].every(v => typeof v === 'string' && v.length <= 2048)) return mpError(res, 'INVALID_FORM');
+      try { if (!['http:', 'https:'].includes(new URL(instagramLink).protocol)) throw 0; } catch { return mpError(res, 'MISSION_INVALID_URL'); }
+      const [users] = await pool.query("SELECT oauth_id FROM user WHERE id=? AND oauth_type='WECHAT_MP' AND is_delete='N'", [userId]);
+      if (!users.length) return mpError(res, 'UNAUTHORIZED', 401);
+      if (memo) { try { await checkMpText(memo, users[0].oauth_id); } catch { return mpError(res, 'MP_CONTENT_REJECTED'); } }
+    }
+    conn = await pool.getConnection();
+    await conn.beginTransaction();
+    await conn.query('SELECT id FROM mission WHERE id=? FOR UPDATE', [missionId]);
     // 미션 정보 확인 (신청자 수, 시작/종료 날짜 등)
-    const missionDetail = await Mission.GetMissionByMissionId(missionId);
+    const missionDetail = await Mission.GetMissionByMissionId(missionId, conn);
+    if (!missionDetail || (req.clientChannel === 'wechat_mp' && !isWechatVisible(missionDetail))) return mpError(res, 'MISSION_NOT_FOUND', 404);
+    if (req.clientChannel === 'wechat_mp') {
+      const start = Date.parse(visitDatetimeStart), end = Date.parse(visitDatetimeEnd);
+      const day = d => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || !missionDetail.missionStartDate || !missionDetail.missionEndDate || day(start) < day(missionDetail.missionStartDate) || day(end) > day(missionDetail.missionEndDate)) return mpError(res, 'INVALID_VISIT_PERIOD');
+    }
 
-    const existingEnroll = await MissionEnroll.CheckUserMissionEnroll(missionId, userId);
+    const existingEnroll = await MissionEnroll.CheckUserMissionEnroll(missionId, userId, conn);
     if (existingEnroll)
       return res.status(200).json({ success: false, error: EC('MISSION_ALREADY_ENROLLED') });
 
     // 1. 신청자가 max_enroll을 넘었는지 확인
-    const enrollCount = await MissionEnroll.GetMissionEnrollCount(missionId);
+    const enrollCount = await MissionEnroll.GetMissionEnrollCount(missionId, conn);
     if (enrollCount >= missionDetail.maxEnroll)
       return res.status(200).json({ success: false, error: EC('MISSION_MAX_ENROLL_REACHED') });
 
@@ -101,12 +121,13 @@ export const EnrollMission = async (req, res, next) => {
       return res.status(200).json({ success: false, error: EC('MISSION_ALREADY_ENDED') });
 
     // 미션 신청 등록 (mission_enroll 테이블에 row 생성)
-    await MissionEnroll.InsertMissionEnroll(missionId, userId, name, instagramLink, wechatId, visitDatetimeStart, visitDatetimeEnd, memo);
+    await MissionEnroll.InsertMissionEnroll(missionId, userId, name, instagramLink, wechatId, visitDatetimeStart, visitDatetimeEnd, memo, req.clientChannel, conn);
+    await conn.commit();
 
     return res.status(200).json({ success: true });
   } catch (e) {
     return next(e);
-  }
+  } finally { if (conn) { await conn.rollback(); conn.release(); } }
 };
 
 /**
@@ -256,8 +277,11 @@ export const PostMissionContents = async (req, res, next) => {
       }
     }
 
+    const enrollment = await MissionEnroll.GetUserMissionEnroll(missionId, userId);
+    if (!enrollment || enrollment.status !== 'selected') return mpError(res, 'MISSION_NOT_SELECTED', 403);
     // Update mission content with JSON object
-    await MissionEnroll.UpdateMissionContent({ missionId, userId, links });
+    const [updated] = await MissionEnroll.UpdateMissionContent({ missionId, userId, links });
+    if (!updated.affectedRows) return mpError(res, 'MISSION_NOT_SELECTED', 409);
 
     return res.status(200).json({
       success: true,
@@ -277,8 +301,7 @@ export const PostMissionContents = async (req, res, next) => {
 function isValidUrl(url) {
   try {
     // Try validating as-is first (for full URLs with protocol)
-    new URL(url);
-    return true;
+    return ['http:', 'https:'].includes(new URL(url).protocol);
   } catch {
     // If that fails, try prepending https:// (for domain patterns like "google.com")
     try {

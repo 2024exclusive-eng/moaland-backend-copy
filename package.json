@@ -7,7 +7,9 @@
     "start": "node src/index  NODE_ENV=staging",
     "start:dev": "nodemon src/index",
     "deploy:staging": "sls deploy --aws-profile k-viewo --stage staging",
-    "deploy:production": "sls deploy --aws-profile k-viewo --stage production"
+    "deploy:production": "sls deploy --aws-profile k-viewo --stage production",
+    "test:wechat": "node --test test/wechat.test.js",
+    "test:admin": "node --test test/admin-roles.test.js"
   },
   "author": "",
   "license": "ISC",

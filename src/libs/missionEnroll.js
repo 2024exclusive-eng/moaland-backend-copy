@@ -5,9 +5,9 @@ import pool from '../utils/pool.js';
  * @param {obj}
  * @returns {Promise([obj] | null)} 
  */
-export const CheckUserMissionEnroll = async (missionId, userId) => {
+export const CheckUserMissionEnroll = async (missionId, userId, conn = pool) => {
   try {
-    const [result] = await pool.query(
+    const [result] = await conn.query(
       `SELECT COUNT(*) AS enrolled 
        FROM mission_enroll 
        WHERE mission_enroll.mission_id = ? AND mission_enroll.user_id = ?`,
@@ -54,9 +54,9 @@ export const GetUserMissionEnroll = async (missionId, userId) => {
  * @param {obj}
  * @returns {Promise([obj] | null)}
  */
-export const GetMissionEnrollCount = async (missionId) => {
+export const GetMissionEnrollCount = async (missionId, conn = pool) => {
   try {
-    const [result] = await pool.query(
+    const [result] = await conn.query(
       `SELECT COUNT(*) AS currentEnrollCount
        FROM mission_enroll
        WHERE mission_id = ?`,
@@ -69,7 +69,7 @@ export const GetMissionEnrollCount = async (missionId) => {
   }
 };
 
-export const GetMissionListByUserId = async ({ page, item, type, userId }) => {
+export const GetMissionListByUserId = async ({ page, item, type, userId, channel }) => {
   try {
     const itemsPerPage = Number(item ? item : 30);
     const currentPage = page ? parseInt(page) : 1;
@@ -118,6 +118,8 @@ export const GetMissionListByUserId = async ({ page, item, type, userId }) => {
       countParams = [userId, type];
     }
 
+    if (channel === 'wechat_mp' && type === 'ended') additionalCondition += " AND mission_enroll.status <> 'rejected'";
+    if (channel === 'wechat_mp') additionalCondition += " AND mission.is_public=1 AND mission.is_wechat_public=1 AND mission.category NOT IN ('Hospital','Massage')";
     const [totalResult] = await pool.query(
       `SELECT COUNT(*) AS totalCount
        FROM mission_enroll
@@ -208,12 +210,12 @@ export const GetMissionListByUserId = async ({ page, item, type, userId }) => {
  * @param {string} memo - Optional notes
  * @returns {Promise<number>} - Returns insertId
  */
-export const InsertMissionEnroll = async (missionId, userId, name, instagramLink, wechatId, visitDatetimeStart, visitDatetimeEnd, memo) => {
+export const InsertMissionEnroll = async (missionId, userId, name, instagramLink, wechatId, visitDatetimeStart, visitDatetimeEnd, memo, channel = 'web', conn = pool) => {
   try {
-    const [data] = await pool.query(
-      `INSERT INTO mission_enroll (mission_id, user_id, name, instagram_link, wechat_id, visit_datetime_start, visit_datetime_end, memo)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [missionId, userId, name, instagramLink, wechatId, visitDatetimeStart, visitDatetimeEnd, memo]
+    const [data] = await conn.query(
+      `INSERT INTO mission_enroll (mission_id, user_id, name, instagram_link, wechat_id, visit_datetime_start, visit_datetime_end, memo, channel, crossborder_consent_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, IF(? = 'wechat_mp', UTC_TIMESTAMP(), NULL))`,
+      [missionId, userId, name, instagramLink, wechatId, visitDatetimeStart, visitDatetimeEnd, memo ?? null, channel, channel]
     );
 
     return data.insertId;
@@ -285,6 +287,8 @@ export const GetUsersByMissionId = async (missionId) => {
               mission_enroll.visit_datetime_start,
               mission_enroll.visit_datetime_end,
               mission_enroll.memo,
+              mission_enroll.channel,
+              mission_enroll.crossborder_consent_at,
               mission_enroll.link,
               mission_enroll.link_updated AS linkUpdated,
               mission_enroll.created,

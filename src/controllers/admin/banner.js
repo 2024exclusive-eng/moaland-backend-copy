@@ -1,3 +1,4 @@
+import { notifyRelay } from '../../utils/wechat.js';
 import pool from '../../utils/pool.js';
 import EC from '../../utils/error.js';
 import * as Banner from '../../libs/banner.js';
@@ -68,11 +69,13 @@ export const CreateOrUpdateBanner = async (req, res, next) => {
       }
 
       await Banner.ModifyBanner(id, type, name, thumbnailPath, bannerLink, order ?? existingBanner.order, isActive || 'Y', bannerLinkType);
+    await notifyRelay('content.changed');
       return res.status(200).json({ success: true, message: 'Banner updated successfully' });
     } else {
       // Create new banner - get next order if not provided (only for home type)
       const bannerOrder = type === 'home' ? (order ?? await Banner.GetNextOrder(type)) : (order ?? 0);
       const insertId = await Banner.InsertBanner(type, name, thumbnailPath, bannerLink, bannerOrder, bannerLinkType);
+    await notifyRelay('content.changed');
       return res.status(201).json({ success: true, data: { id: insertId }, message: 'Banner created successfully' });
     }
   } catch (e) {
@@ -95,6 +98,7 @@ export const DeleteBanner = async (req, res, next) => {
     }
 
     await Banner.DeleteBanner(id);
+    await notifyRelay('content.changed');
 
     return res.status(200).json({ success: true, message: 'Banner deleted successfully' });
   } catch (e) {
@@ -122,6 +126,7 @@ export const ToggleBannerActive = async (req, res, next) => {
     }
 
     await Banner.ToggleBannerActive(id, isActive);
+    await notifyRelay('content.changed');
 
     return res.status(200).json({ success: true, message: 'Banner status updated successfully' });
   } catch (e) {
@@ -160,6 +165,7 @@ export const ReorderBanners = async (req, res, next) => {
     }
 
     await Banner.ReorderBanners(banners);
+    await notifyRelay('content.changed');
 
     return res.status(200).json({ success: true, message: 'Banners reordered successfully' });
   } catch (e) {

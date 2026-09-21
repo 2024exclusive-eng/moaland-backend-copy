@@ -1,3 +1,6 @@
+import {createCampaign} from '../../libs/adminManagement.js';
+import {adminOwner,isSuperAdmin} from '../../utils/adminPolicy.js';
+import { notifyRelay, checkMpText, mpError } from '../../utils/wechat.js';
 import EC from '../../utils/error.js';
 import * as Mission from '../../libs/mission.js';
 import * as MissionEnroll from '../../libs/missionEnroll.js';
@@ -9,7 +12,7 @@ import * as MissionEnroll from '../../libs/missionEnroll.js';
  */
 export const GetMissionStatus = async (req, res, next) => {
   try {
-    const statistics = await Mission.GetMissionStatistics();
+    const statistics = await Mission.GetMissionStatistics(adminOwner(req));
 
     return res.status(200).json({
       success: true,
@@ -42,7 +45,8 @@ export const GetMissionList = async (req, res, next) => {
       is_recommended,
       region,
       category,
-      social
+      social,
+      ownerAdminId: adminOwner(req)
     });
 
     return res.status(200).json({ success: true, missions });
@@ -61,7 +65,9 @@ export const GetMissionDetail = async (req, res, next) => {
     const { id } = req.params;
 
     const mission = await Mission.GetMissionByMissionId(id);
+    if (mission) mission.ownerAdminId = req.missionOwner;
     const enrollUser = await MissionEnroll.GetUsersByMissionId(id);
+    if(!isSuperAdmin(req.admin)) enrollUser.forEach(user=>{delete user.userLink;delete user.oauthType;delete user.deleted;delete user.is_delete;});
 
     // P35: 상세를 열었다 = 신청 건을 확인했다. 리스트의 빨간색 표기를 해제한다.
     await Mission.MarkEnrollSeen(id);
@@ -93,12 +99,19 @@ export const GetMissionDetail = async (req, res, next) => {
 export const PostMission = async (req, res, next) => {
   try {
     const { id } = req.params;
-    console.log(req.body);
+
 
     if (id === "new") {
-      await Mission.InsertMission(req.body);
+      const createdId = await createCampaign(req.admin, req.body);
+      await notifyRelay('mission.upserted', createdId);
     } else {
-      await Mission.UpdateMission(id, req.body);
+      const current = await Mission.GetMissionByMissionId(id);
+      if (current?.isWechatPublic) {
+        if (['hospital', 'massage'].includes(String(req.body.category).toLowerCase())) return mpError(res, 'MP_CATEGORY_BLOCKED');
+        try { await checkMpText([req.body.titleCn, req.body.goodsContentsCn].filter(Boolean).join('\n')); } catch { return mpError(res, 'MP_CONTENT_REJECTED', 422); }
+      }
+      await Mission.UpdateMission(id, {...req.body, isRecommended:isSuperAdmin(req.admin)?req.body.isRecommended:current.isRecommended});
+      await notifyRelay('mission.upserted', id);
     }
 
     return res.status(200).json({ success: true });
@@ -117,6 +130,7 @@ export const DeleteMission = async (req, res, next) => {
     const { id } = req.params;
 
     await Mission.DeleteMission(id);
+    await notifyRelay('mission.deleted', id);
 
     return res.status(200).json({ success: true });
   } catch (e) {
@@ -150,6 +164,7 @@ export const UpdatePublicMission = async (req, res, next) => {
     const { missionId } = req.params;
     const { status } = req.body;
     await Mission.UpdatePublicMission(missionId, status);
+    await notifyRelay('mission.visibility', missionId);
 
     return res.status(200).json({ success: true });
   } catch (e) {
@@ -167,6 +182,7 @@ export const UpdateRecommendedMission = async (req, res, next) => {
     const { missionId } = req.params;
     const { is_recommended } = req.body;
     await Mission.UpdateRecommendedMission(missionId, is_recommended);
+    await notifyRelay('mission.upserted', missionId);
 
     return res.status(200).json({ success: true });
   } catch (e) {
@@ -181,7 +197,7 @@ export const UpdateRecommendedMission = async (req, res, next) => {
  */
 export const GetMissionFilterCounts = async (req, res, next) => {
   try {
-    const counts = await Mission.GetMissionFilterCounts();
+    const counts = await Mission.GetMissionFilterCounts(adminOwner(req));
 
     return res.status(200).json({ success: true, counts });
   } catch (e) {
@@ -229,6 +245,7 @@ export const SetPinnedMissions = async (req, res, next) => {
     }
 
     await Mission.SetPinnedMissions(section, missionIds.map(Number));
+    await notifyRelay('mission.pinned', null);
 
     return res.status(200).json({ success: true, message: 'Pinned missions updated successfully' });
   } catch (e) {
@@ -267,6 +284,7 @@ export const SetManualEnrollCount = async (req, res, next) => {
         : manualCount;
 
     await Mission.SetManualEnrollCount(missionId, capped);
+    await notifyRelay('mission.count', missionId);
 
     return res.status(200).json({ success: true, count: capped, message: 'Enroll count updated successfully' });
   } catch (e) {

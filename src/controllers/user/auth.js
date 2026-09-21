@@ -10,7 +10,7 @@ import { SendVerificationCode, VerifyVerificationCode } from '../../utils/mailgu
 import axios from 'axios';
 
 const LINE_CLIENT_ID = "2006628274";
-const LINE_CLIENT_SECRET = "b487c9e56b9aa886bfb27bab77bca4bf";
+const LINE_CLIENT_SECRET = process.env.LINE_CLIENT_SECRET;
 
 /**
  * @function Login
@@ -30,7 +30,7 @@ export const Login = async (req, res, next) => {
           Authorization: `Bearer ${lineAccessToken}`,
         },
       });
-      console.log(profileResponse);
+
       const { userId } = profileResponse.data;
       const user = await User.GetUserOneByOauthId('LINE', userId);
 

@@ -6,6 +6,7 @@ import authMiddleware from "./middlewares/auth.js";
 import clientErrorHandler from "./middlewares/clientErrorHandler.js";
 import errorHandler from "./middlewares/errorHandler.js";
 import routes from "./routes/index.js";
+import { internalGuard } from './middlewares/internal.js';
 const app = express();
 
 app.use(cors());
@@ -14,6 +15,7 @@ app.use(express.urlencoded({ limit: '100mb', extended: true }));
 app.use(helmet());
 app.use(morgan("short"));
 
+app.use(internalGuard);
 app.use(authMiddleware);
 app.use(routes);
 app.use(clientErrorHandler);

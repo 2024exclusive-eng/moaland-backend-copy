@@ -1,3 +1,4 @@
+import { notifyRelay } from '../../utils/wechat.js';
 import pool from '../../utils/pool.js';
 import EC from '../../utils/error.js';
 import * as Faq from '../../libs/faq.js';
@@ -64,10 +65,12 @@ export const CreateOrUpdateFaq = async (req, res, next) => {
       }
 
       await Faq.ModifyFaq(id, type, title, titleCn, answer, answerCn, displayOrder || 0, isActive || 'Y');
+    await notifyRelay('content.changed');
       return res.status(200).json({ success: true, message: 'FAQ updated successfully' });
     } else {
       // Create new FAQ
       const insertId = await Faq.InsertFaq(type, title, titleCn, answer, answerCn, displayOrder || 0);
+    await notifyRelay('content.changed');
       return res.status(201).json({ success: true, data: { id: insertId }, message: 'FAQ created successfully' });
     }
   } catch (e) {
@@ -90,6 +93,7 @@ export const DeleteFaq = async (req, res, next) => {
     }
 
     await Faq.DeleteFaq(id);
+    await notifyRelay('content.changed');
 
     return res.status(200).json({ success: true, message: 'FAQ deleted successfully' });
   } catch (e) {
@@ -117,6 +121,7 @@ export const ToggleFaqActive = async (req, res, next) => {
     }
 
     await Faq.ToggleFaqActive(id, isActive);
+    await notifyRelay('content.changed');
 
     return res.status(200).json({ success: true, message: 'FAQ status updated successfully' });
   } catch (e) {

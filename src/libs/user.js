@@ -34,7 +34,7 @@ export const GetUserOneByOauthId = async (type, oauthId) => {
  * @param {obj}
  * @returns {Promise(obj | null)} user
  */
-export const GetUserList = async (paging, search) => {
+export const GetUserList = async (paging, search, channel) => {
   try {
     const itemsPerPage = Number(paging?.item ? paging.item : 30);
     const currentPage = paging?.page ? parseInt(paging.page) : 1;
@@ -46,6 +46,7 @@ export const GetUserList = async (paging, search) => {
         u.email,
         u.link,
         u.oauth_type AS oauthType,
+        u.signup_channel AS signup_channel,
         u.account,
         u.deleted,
         u.is_delete,
@@ -62,12 +63,17 @@ export const GetUserList = async (paging, search) => {
     let countParams = [];
 
     if (search) {
-      query += ` WHERE u.email LIKE ? OR u.link LIKE ?`;
-      countQuery += ` WHERE email LIKE ? OR link LIKE ?`;
+      query += ` WHERE (u.email LIKE ? OR u.link LIKE ?)`;
+      countQuery += ` WHERE (email LIKE ? OR link LIKE ?)`;
       queryParams.push(`%${search}%`, `%${search}%`);
       countParams.push(`%${search}%`, `%${search}%`);
     }
 
+    if (['web', 'wechat_mp'].includes(channel)) {
+      query += search ? ' AND u.signup_channel = ?' : ' WHERE u.signup_channel = ?';
+      countQuery += search ? ' AND signup_channel = ?' : ' WHERE signup_channel = ?';
+      queryParams.push(channel); countParams.push(channel);
+    }
     query += ` ORDER BY u.id DESC LIMIT ? OFFSET ?`;
     queryParams.push(itemsPerPage, offset);
 
