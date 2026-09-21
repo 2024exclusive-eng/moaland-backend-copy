@@ -149,6 +149,7 @@ export const GetMissionListByUserId = async ({ page, item, type, userId, channel
               mission.brand AS brand,
               mission.address AS address,
               mission.address_cn AS addressCn,
+              mission.amap_location AS amapLocation,
               mission.address_en AS addressEn,
               mission.title AS title,
               mission.title_cn AS titleCn,

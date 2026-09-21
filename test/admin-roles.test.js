@@ -255,7 +255,7 @@ test('two concurrent submissions with one remaining slot create exactly one camp
   );
   assert.equal(state.missions, 1);
   assert.equal(state.used, 1);
-  assert.equal(state.params.at(-2), 0);
+  assert.equal(state.params.at(-3), 0);
 });
 test('failed campaign insert rolls back; zero blocks and unlimited allows', async () => {
   let state = campaignDB({ failInsert: true });

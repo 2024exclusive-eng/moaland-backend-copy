@@ -1,3 +1,4 @@
+import amapRoute from './amap.js';
 import accountsRoute from './accounts.js';
 import {SuperAdminOnly} from '../../middlewares/adminAccess.js';
 import express from 'express';
@@ -33,6 +34,7 @@ route.use('/auth', authRoute);
 // // 인증 이후
 route.use(AdminLoginCheck);
 route.use('/accounts', accountsRoute);
+route.use('/amap', amapRoute);
 route.use('/mission', missionRoute);
 route.use('/manage', SuperAdminOnly, manageRoute);
 route.use('/notice', SuperAdminOnly, noticeRoute);

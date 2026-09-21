@@ -1,3 +1,4 @@
+import { normalizeAmapLocation } from '../utils/amap.js';
 import pool from '../utils/pool.js';
 
 /**
@@ -170,6 +171,7 @@ export const GetMissionByMissionId = async (missionId, conn = pool) => {
               mission.region AS region,
               mission.address AS address,
               mission.address_cn AS addressCn,
+              mission.amap_location AS amapLocation,
               mission.address_en AS addressEn,
               mission.latitude AS latitude,
               mission.longitude AS longitude,
@@ -309,8 +311,8 @@ export const InsertMission = async (missionData, db = pool) => {
         social, region, address, address_cn, address_en, latitude, longitude, point, max_enroll,
         brand, title, title_cn, thumbnail_img, detail_img, goods_contents, goods_contents_cn,
         mission_contents, mission_contents_cn, additional_info, additional_info_cn,
-        guideline, guideline_cn, is_recommended, is_public
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        guideline, guideline_cn, is_recommended, is_public, amap_location
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         category,
         enrollStartDate,
@@ -344,7 +346,8 @@ export const InsertMission = async (missionData, db = pool) => {
         guideline,
         guidelineCn || null,
         isRecommended ? 1 : 0,
-        1
+        1,
+        JSON.stringify(normalizeAmapLocation(missionData.amapLocation))
       ],
     );
 
@@ -430,7 +433,8 @@ export const UpdateMission = async (missionId, missionData) => {
         additional_info_cn = ?,
         guideline = ?,
         guideline_cn = ?,
-        is_recommended = ?
+        is_recommended = ?,
+        amap_location = IF(?, ?, amap_location)
       WHERE id = ?`,
       [
         category,
@@ -465,6 +469,8 @@ export const UpdateMission = async (missionId, missionData) => {
         guideline,
         guidelineCn || null,
         isRecommended ? 1 : 0,
+        Object.hasOwn(missionData, 'amapLocation') ? 1 : 0,
+        JSON.stringify(normalizeAmapLocation(missionData.amapLocation)),
         missionId,
       ],
     );

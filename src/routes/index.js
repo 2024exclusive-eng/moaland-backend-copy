@@ -1,3 +1,4 @@
+import { amapProxy } from './admin/amap.js';
 import express from 'express';
 
 import adminRoute from './admin/index.js';
@@ -8,6 +9,7 @@ import internalRoute from './internal.js';
 const route = express.Router();
 route.use('/internal', internalRoute);
 
+route.use('/amap-proxy', amapProxy);
 route.use('/user', userRoute);
 route.use('/admin', adminRoute);
 // (()=>{
