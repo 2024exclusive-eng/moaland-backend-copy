@@ -195,7 +195,8 @@ export async function createCampaign(actor, body) {
       isRecommended: isSuperAdmin(current) ? body.isRecommended : false,
     };
     const id = await InsertMission(data, db);
-    await db.query('UPDATE mission SET owner_admin_id=? WHERE id=?', [
+    await db.query('UPDATE mission SET owner_admin_id=?, created_by_admin_id=? WHERE id=?', [
+      current.id,
       current.id,
       id,
     ]);

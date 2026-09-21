@@ -572,6 +572,10 @@ export const GetMissionListByStatus = async (filters = {}) => {
         SELECT mission.id AS missionId,
                mission.owner_admin_id AS ownerAdminId,
                mission.owner_admin_id AS scopeOwnerAdminId,
+               uploader.id AS uploaderAdminId,
+               uploader.name AS uploaderName,
+               uploader.admin AS uploaderLogin,
+               uploader.company_name AS uploaderCompany,
                mission.category AS category,
               mission.is_public AS isPublic,
               mission.is_wechat_public AS isWechatPublic,
@@ -660,6 +664,7 @@ export const GetMissionListByStatus = async (filters = {}) => {
                  ELSE 'in_selection'
                END AS computed_selection_status
         FROM mission
+        LEFT JOIN admin uploader ON uploader.id = mission.created_by_admin_id
       ) AS mission_with_status
     `;
 
@@ -713,6 +718,10 @@ export const GetMissionListByStatus = async (filters = {}) => {
                  ELSE 'in_selection'
                END AS computed_selection_status,
                mission.owner_admin_id AS scopeOwnerAdminId,
+               uploader.id AS uploaderAdminId,
+               uploader.name AS uploaderName,
+               uploader.admin AS uploaderLogin,
+               uploader.company_name AS uploaderCompany,
                mission.category AS category,
               mission.is_public AS isPublic,
               mission.is_wechat_public AS isWechatPublic,
@@ -723,6 +732,7 @@ export const GetMissionListByStatus = async (filters = {}) => {
                mission.brand AS brand,
                mission.is_recommended AS isRecommended
         FROM mission
+        LEFT JOIN admin uploader ON uploader.id = mission.created_by_admin_id
       ) AS mission_with_status
     `;
 
@@ -779,9 +789,10 @@ export const GetMissionListByStatus = async (filters = {}) => {
 
     // Search filter
     if (filters.search) {
-      conditions.push('(mission_with_status.title LIKE ? OR mission_with_status.brand LIKE ?)');
-      queryParams.push(`%${filters.search}%`, `%${filters.search}%`);
-      countParams.push(`%${filters.search}%`, `%${filters.search}%`);
+      conditions.push('(mission_with_status.title LIKE ? OR mission_with_status.brand LIKE ? OR mission_with_status.uploaderName LIKE ? OR mission_with_status.uploaderLogin LIKE ? OR mission_with_status.uploaderCompany LIKE ?)');
+      const searchParams = Array(5).fill(`%${filters.search}%`);
+      queryParams.push(...searchParams);
+      countParams.push(...searchParams);
     }
 
     if (filters.is_recommended !== undefined) {
