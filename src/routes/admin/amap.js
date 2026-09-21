@@ -1,3 +1,4 @@
+import { cachedAmapSearch } from '../../utils/amapSearchCache.js';
 import { Router } from 'express';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { normalizePoi } from '../../utils/amap.js';
@@ -18,10 +19,13 @@ route.get('/places',async(req,res)=>{
   const params=new URLSearchParams({key:process.env.AMAP_WEB_SERVICE_KEY,keywords:req.query.keywords.trim(),page_size:'10',page_num:'1',output:'JSON'});
   if(req.query.region?.trim()){params.set('region',req.query.region.trim());params.set('city_limit','true');}
   try {
-    const response=await fetch('https://restapi.amap.com/v5/place/text?'+params,{signal:AbortSignal.timeout(8000)});
-    const body=await response.json();
+    const body=await cachedAmapSearch(params.toString(),async()=>{
+      const response=await fetch('https://restapi.amap.com/v5/place/text?'+params,{signal:AbortSignal.timeout(8000)});
+      if(!response.ok)throw new Error('AMAP_HTTP_ERROR');
+      return response.json();
+    });
     if(['10003','10004','10044','10045'].includes(String(body.infocode)))return fail(res,429,'AMAP_QUOTA_EXCEEDED','고덕지도 검색 한도를 초과했습니다. 관리자에게 할당량 확인을 요청해 주세요.');
-    if(!response.ok||body.status!=='1')return fail(res,502,'AMAP_SEARCH_FAILED','고덕지도 검색을 사용할 수 없습니다. 잠시 후 다시 시도하거나 키 설정을 확인해 주세요.');
+    if(body.status!=='1')return fail(res,502,'AMAP_SEARCH_FAILED','고덕지도 검색을 사용할 수 없습니다. 잠시 후 다시 시도하거나 키 설정을 확인해 주세요.');
     res.set('Cache-Control','no-store').json({success:true,data:(Array.isArray(body.pois)?body.pois:[]).map(normalizePoi).filter(Boolean)});
   }catch{return fail(res,502,'AMAP_UNAVAILABLE','고덕지도 연결이 지연되고 있습니다. 다시 시도해 주세요.');}
 });
