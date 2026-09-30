@@ -1,3 +1,5 @@
+import {adminForms} from '../enrollmentForms.js';
+import {adminNotifications} from '../notifications.js';
 import amapRoute from './amap.js';
 import accountsRoute from './accounts.js';
 import {SuperAdminOnly} from '../../middlewares/adminAccess.js';
@@ -33,6 +35,8 @@ route.use('/auth', authRoute);
 
 // // 인증 이후
 route.use(AdminLoginCheck);
+route.use('/enrollment-forms', adminForms);
+route.use('/notifications', adminNotifications);
 route.use('/accounts', accountsRoute);
 route.use('/amap', amapRoute);
 route.use('/mission', missionRoute);

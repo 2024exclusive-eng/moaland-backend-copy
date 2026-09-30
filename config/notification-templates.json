@@ -1,0 +1,162 @@
+{
+  "approved": {
+    "id": "SMYqy9ERQ2FMKp7iha3dHDftzvc7ROjKfpcU9bHT66s",
+    "name": "报名结果通知",
+    "fields": {
+      "thing18": "title",
+      "phrase1": "status",
+      "time20": "time",
+      "thing5": "remark"
+    },
+    "fieldDefinitions": [
+      {
+        "label": "活动标题",
+        "source": "title",
+        "key": "thing18"
+      },
+      {
+        "label": "报名结果",
+        "source": "status",
+        "key": "phrase1"
+      },
+      {
+        "label": "活动时间",
+        "source": "time",
+        "key": "time20"
+      },
+      {
+        "label": "备注",
+        "source": "remark",
+        "key": "thing5"
+      }
+    ]
+  },
+  "visit_3d": {
+    "id": "uNNPyNUf1gVmLX2CiXH_ejkwDaWalJEHe8P9IJmSYik",
+    "name": "活动预约提醒",
+    "fields": {
+      "thing2": "title",
+      "time8": "time",
+      "thing10": "address",
+      "thing11": "remark"
+    },
+    "fieldDefinitions": [
+      {
+        "label": "活动名称",
+        "source": "title",
+        "key": "thing2"
+      },
+      {
+        "label": "开始时间",
+        "source": "time",
+        "key": "time8"
+      },
+      {
+        "label": "地址",
+        "source": "address",
+        "key": "thing10"
+      },
+      {
+        "label": "备注",
+        "source": "remark",
+        "key": "thing11"
+      }
+    ]
+  },
+  "visit_1d": {
+    "id": "R4CHH8EVNayiUQc9Rxk-q07cClz4ROU4f6xEJbbLfdE",
+    "name": "预约提醒",
+    "fields": {
+      "thing2": "title",
+      "time14": "time",
+      "thing10": "brand",
+      "thing4": "remark"
+    },
+    "fieldDefinitions": [
+      {
+        "label": "预约项目",
+        "source": "title",
+        "key": "thing2"
+      },
+      {
+        "label": "到店时间",
+        "source": "time",
+        "key": "time14"
+      },
+      {
+        "label": "预约门店",
+        "source": "brand",
+        "key": "thing10"
+      },
+      {
+        "label": "温馨提示",
+        "source": "remark",
+        "key": "thing4"
+      }
+    ]
+  },
+  "visit_1h": {
+    "id": "yvZmCkgvulxXSxz6HZvWTJpd3Us2RFxqd-S8H_QAbdY",
+    "name": "活动开始提醒",
+    "fields": {
+      "thing2": "title",
+      "date3": "time",
+      "thing6": "address",
+      "thing1": "remark"
+    },
+    "fieldDefinitions": [
+      {
+        "label": "活动名称",
+        "source": "title",
+        "key": "thing2"
+      },
+      {
+        "label": "开始时间",
+        "source": "time",
+        "key": "date3"
+      },
+      {
+        "label": "活动地点",
+        "source": "address",
+        "key": "thing6"
+      },
+      {
+        "label": "温馨提示",
+        "source": "remark",
+        "key": "thing1"
+      }
+    ]
+  },
+  "review": {
+    "id": "EBYsCNBE1Q5rOU4wbIkV7-wSF31VnY4Sjqotp0YxJ5Y",
+    "name": "工作任务待办通知",
+    "fields": {
+      "thing1": "taskType",
+      "thing2": "title",
+      "time16": "deadline",
+      "thing11": "remark"
+    },
+    "fieldDefinitions": [
+      {
+        "label": "待办类型",
+        "source": "taskType",
+        "key": "thing1"
+      },
+      {
+        "label": "待办内容",
+        "source": "title",
+        "key": "thing2"
+      },
+      {
+        "label": "截至时间",
+        "source": "deadline",
+        "key": "time16"
+      },
+      {
+        "label": "备注",
+        "source": "remark",
+        "key": "thing11"
+      }
+    ]
+  }
+}

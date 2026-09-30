@@ -1,3 +1,5 @@
+import {formsEnabled,getForm,storeAnswers} from '../../libs/enrollmentForms.js';
+import {validateAnswers,formError} from '../../utils/enrollmentFormPolicy.js';
 import { isWechatVisible, mpError, checkMpText } from '../../utils/wechat.js';
 import pool from '../../utils/pool.js';
 import EC from '../../utils/error.js';
@@ -68,8 +70,17 @@ export const EnrollMission = async (req, res, next) => {
   try {
     const { missionId } = req.params;
     const userId = req.decoded.id;
-    const { name, instagramLink, wechatId, visitDatetimeStart, visitDatetimeEnd, memo } = req.body;
+    let { name, instagramLink, wechatId, visitDatetimeStart, visitDatetimeEnd, memo } = req.body;
+    let form=null,answers=null;
+    if(formsEnabled()){
+      const m=await Mission.GetMissionByMissionId(missionId);
+      if(!m)return mpError(res,'MISSION_NOT_FOUND',404);
+      form=await getForm(req.clientChannel==='wechat_mp'?'wechat_mp':'web',m.category);
+      if(form){answers=validateAnswers(form,req.body);name='';instagramLink='';wechatId='';visitDatetimeStart=null;visitDatetimeEnd=null;memo='';}
+      else if(req.body.formVersion!==undefined)throw formError('FORM_CHANGED');
+    }
 
+    if(!form){
     // 유효성 검사
     if (isEmpty(name)) return res.status(200).json({ success: false, error: EC('MISSION_NEED_NAME') });
     if (isEmpty(instagramLink)) return res.status(200).json({ success: false, error: EC('MISSION_NEED_INSTAGRAM') });
@@ -77,14 +88,16 @@ export const EnrollMission = async (req, res, next) => {
     if (isEmpty(visitDatetimeStart)) return res.status(200).json({ success: false, error: EC('MISSION_NEED_VISIT_DATE') });
     if (isEmpty(visitDatetimeEnd)) return res.status(200).json({ success: false, error: EC('MISSION_NEED_VISIT_DATE') });
 
+    }
     if (req.clientChannel === 'wechat_mp') {
       if (req.body.crossborderConsent !== true) return mpError(res, 'MISSION_NEED_CONSENT');
       if (typeof memo !== 'undefined' && (typeof memo !== 'string' || memo.length > 200)) return mpError(res, 'INVALID_MEMO');
       if (![name, instagramLink, wechatId].every(v => typeof v === 'string' && v.length <= 2048)) return mpError(res, 'INVALID_FORM');
-      try { if (!['http:', 'https:'].includes(new URL(instagramLink).protocol)) throw 0; } catch { return mpError(res, 'MISSION_INVALID_URL'); }
+      try { if (!form && !['http:', 'https:'].includes(new URL(instagramLink).protocol)) throw 0; } catch { return mpError(res, 'MISSION_INVALID_URL'); }
       const [users] = await pool.query("SELECT oauth_id FROM user WHERE id=? AND oauth_type='WECHAT_MP' AND is_delete='N'", [userId]);
       if (!users.length) return mpError(res, 'UNAUTHORIZED', 401);
-      if (memo) { try { await checkMpText(memo, users[0].oauth_id); } catch { return mpError(res, 'MP_CONTENT_REJECTED'); } }
+      const content=form?Object.values(answers).flat().join('\n'):memo;
+      if (content) { try { await checkMpText(content, users[0].oauth_id); } catch { return mpError(res, 'MP_CONTENT_REJECTED'); } }
     }
     conn = await pool.getConnection();
     await conn.beginTransaction();
@@ -92,7 +105,8 @@ export const EnrollMission = async (req, res, next) => {
     // 미션 정보 확인 (신청자 수, 시작/종료 날짜 등)
     const missionDetail = await Mission.GetMissionByMissionId(missionId, conn);
     if (!missionDetail || (req.clientChannel === 'wechat_mp' && !isWechatVisible(missionDetail))) return mpError(res, 'MISSION_NOT_FOUND', 404);
-    if (req.clientChannel === 'wechat_mp') {
+    if(formsEnabled()){const current=await getForm(req.clientChannel==='wechat_mp'?'wechat_mp':'web',missionDetail.category,conn,true);if((current?.version??0)!==(form?.version??0)||current?.category!==form?.category)throw formError('FORM_CHANGED');}
+    if (req.clientChannel === 'wechat_mp' && !form) {
       const start = Date.parse(visitDatetimeStart), end = Date.parse(visitDatetimeEnd);
       const day = d => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
       if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || !missionDetail.missionStartDate || !missionDetail.missionEndDate || day(start) < day(missionDetail.missionStartDate) || day(end) > day(missionDetail.missionEndDate)) return mpError(res, 'INVALID_VISIT_PERIOD');
@@ -121,11 +135,13 @@ export const EnrollMission = async (req, res, next) => {
       return res.status(200).json({ success: false, error: EC('MISSION_ALREADY_ENDED') });
 
     // 미션 신청 등록 (mission_enroll 테이블에 row 생성)
-    await MissionEnroll.InsertMissionEnroll(missionId, userId, name, instagramLink, wechatId, visitDatetimeStart, visitDatetimeEnd, memo, req.clientChannel, conn);
+    const enrollId=await MissionEnroll.InsertMissionEnroll(missionId, userId, name, instagramLink, wechatId, visitDatetimeStart, visitDatetimeEnd, memo, req.clientChannel, conn);
+    if(form)await storeAnswers(conn,enrollId,form,answers);
     await conn.commit();
 
     return res.status(200).json({ success: true });
   } catch (e) {
+    if(e.status)return res.status(e.status).json({success:false,error:{code:e.message,field:e.field}});
     return next(e);
   } finally { if (conn) { await conn.rollback(); conn.release(); } }
 };

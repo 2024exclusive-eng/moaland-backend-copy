@@ -1,3 +1,4 @@
+import {runWorker,sendThroughRelay} from '../libs/notifications.js';
 import { Router } from 'express';
 import pool from '../utils/pool.js';
 import { sign } from '../utils/jwt.js';
@@ -7,6 +8,7 @@ import { mpError, isWechatVisible } from '../utils/wechat.js';
 const router = Router();
 router.post('/mp/login', async (req, res, next) => {
   const { openid, unionid } = req.body;
+  if(req.body.privacyAccepted!==true || req.body.privacyVersion!=='2026-09-23')return mpError(res,'PRIVACY_REQUIRED');
   if (typeof openid !== 'string' || !/^[A-Za-z0-9_-]{10,64}$/.test(openid) || (unionid != null && (typeof unionid !== 'string' || unionid.length > 64))) return mpError(res, 'INVALID_WECHAT_ID');
   let conn;
   try {
@@ -20,6 +22,7 @@ router.post('/mp/login', async (req, res, next) => {
     const [profiles] = await conn.query('SELECT user_id FROM user_profile WHERE user_id=?', [user.id]);
     if (!profiles.length) await InsertUserProfile(conn, { userId: user.id });
     const accessToken = await sign({ service: 'USER', tokenType: 'ACCESSTOKEN', id: user.id, channel: 'wechat_mp' });
+    if(process.env.SIGNUP_CONSENT_ENABLED==='true')await conn.query("INSERT INTO user_consent(user_id,purpose,version,choice) VALUES(?,'privacy',?,'accepted')",[user.id,req.body.privacyVersion]);
     await conn.commit();
     res.json({ success: true, data: { userId: user.id, accessToken, isNew: insert.affectedRows === 1 && !profiles.length } });
   } catch (e) { if (conn) await conn.rollback(); next(e); } finally { conn?.release(); }
@@ -43,4 +46,5 @@ router.get('/mp/identity', async (req, res, next) => {
     res.json({ success: true, data: rows[0] });
   } catch (e) { next(e); }
 });
+router.post('/notifications/tick', async(req,res,next)=>{try{res.json({success:true,data:await runWorker(sendThroughRelay)});}catch(e){next(e);}});
 export default router;

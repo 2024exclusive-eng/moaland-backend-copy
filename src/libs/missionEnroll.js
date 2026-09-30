@@ -1,3 +1,6 @@
+import {formsEnabled} from './enrollmentForms.js';
+import {enabled} from '../utils/notificationPolicy.js';
+import {applied,changeStatus,transaction} from './notifications.js';
 import pool from '../utils/pool.js';
 
 /**
@@ -219,6 +222,7 @@ export const InsertMissionEnroll = async (missionId, userId, name, instagramLink
       [missionId, userId, name, instagramLink, wechatId, visitDatetimeStart, visitDatetimeEnd, memo ?? null, channel, channel]
     );
 
+    await applied(conn,data.insertId);
     return data.insertId;
   } catch (e) {
     throw e;
@@ -232,6 +236,11 @@ export const InsertMissionEnroll = async (missionId, userId, name, instagramLink
  */
 export const DeleteMissionEnroll = async (missionId, userId) => {
   try {
+    if(formsEnabled())return transaction(async db=>{
+      await db.query('SELECT id FROM mission_enroll WHERE mission_id=? AND user_id=? FOR UPDATE',[missionId,userId]);
+      await db.query('DELETE a FROM enrollment_form_answer a JOIN mission_enroll e ON e.id=a.enroll_id WHERE e.mission_id=? AND e.user_id=?',[missionId,userId]);
+      return db.query('DELETE FROM mission_enroll WHERE mission_id=? AND user_id=?',[missionId,userId]);
+    });
     const result = await pool.query(
       `DELETE FROM mission_enroll 
        WHERE mission_id = ? AND user_id = ?`,
@@ -258,12 +267,17 @@ export const UpdateMissionContent = async ({ missionId, userId, links }) => {
     const linksJson = JSON.stringify(links);
 
     // Only update link, don't change status (admin will mark as completed later)
-    const result = await pool.query(
+    const result = await transaction(async db => {
+    const [rows]=await db.query('SELECT id FROM mission_enroll WHERE mission_id=? AND user_id=? FOR UPDATE',[missionId,userId]);
+    const updated = await db.query(
       `UPDATE mission_enroll
        SET link = ?, link_updated = NOW()
        WHERE mission_id = ? AND user_id = ? AND status = 'selected'`,
       [linksJson, missionId, userId]
     );
+    if(enabled() && updated[0].affectedRows && rows.length)await db.query("UPDATE notification_job SET state='cancelled',reason='review_submitted' WHERE enroll_id=? AND kind='review' AND state IN ('pending','blocked')",[rows[0].id]);
+    return updated;
+    });
 
     return result;
   } catch (e) {
@@ -317,6 +331,7 @@ export const GetUsersByMissionId = async (missionId) => {
  * @returns {Promise([obj] | null)} 
  */
 export const UpdateMissionEnrollStatus = async (enrollId, type) => {
+  if(enabled())return changeStatus(enrollId,type);
   try {
     const result = await pool.query(
       `UPDATE mission_enroll 

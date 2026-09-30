@@ -1,3 +1,4 @@
+import {userNotifications} from '../notifications.js';
 import express from 'express';
 
 import authRoute from './auth.js';
@@ -13,6 +14,7 @@ import eventRoute from './event.js';
 import faqRoute from './faq.js';
 
 const route = express.Router();
+route.use('/notifications', userNotifications);
 route.use('/auth', authRoute);
 route.use('/mission', missionRoute);
 route.use('/notice', noticeRoute);
