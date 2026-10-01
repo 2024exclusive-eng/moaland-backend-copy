@@ -292,6 +292,7 @@ export const UpdateMissionContent = async ({ missionId, userId, links }) => {
  */
 export const GetUsersByMissionId = async (missionId) => {
   try {
+    const includeForms = formsEnabled();
     const [result] = await pool.query(
       `SELECT mission_enroll.id AS missionEnrollId,
               mission_enroll.user_id AS userId,
@@ -312,13 +313,22 @@ export const GetUsersByMissionId = async (missionId) => {
               user.is_delete,
               user.link AS userLink,
               user.oauth_type AS oauthType
+              ${includeForms ? ', form.version AS formVersion, form.snapshot AS formSnapshot, form.answers AS formAnswers' : ''}
        FROM mission_enroll
        INNER JOIN user ON mission_enroll.user_id = user.id
+       ${includeForms ? 'LEFT JOIN enrollment_form_answer form ON form.enroll_id = mission_enroll.id' : ''}
        WHERE mission_enroll.mission_id = ?`,
       [missionId]
     );
 
-    return result;
+    return result.map(({formVersion, formSnapshot, formAnswers, ...user}) => ({
+      ...user,
+      enrollmentForm: formVersion == null ? null : {
+        version: formVersion,
+        fields: typeof formSnapshot === 'string' ? JSON.parse(formSnapshot) : formSnapshot,
+        answers: typeof formAnswers === 'string' ? JSON.parse(formAnswers) : formAnswers
+      }
+    }));
   } catch (e) {
     throw e;
   }
