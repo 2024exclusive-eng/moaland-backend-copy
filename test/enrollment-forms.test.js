@@ -25,11 +25,14 @@ test('dates, URLs and numbers are validated on server',()=>{
  for(const [type,value] of [['date','2026-02-30'],['url','javascript:alert(1)'],['number','NaN']])assert.throws(()=>validateAnswers({...form,fields:[{...field,type}]},{formVersion:1,answers:{f_name:value}}));
  assert.equal(validateAnswers({...form,fields:[{...field,type:'number'}]},{formVersion:1,answers:{f_name:'0'}}).f_name,'0');
 });
-test('settings are channel/category scoped and optimistic saves reject lost updates',async()=>{
+test('settings are shared by category and optimistic saves reject lost updates',async()=>{
  process.env.ENROLLMENT_FORMS_ENABLED='true';const calls=[];let rolled=false;
  const db={beginTransaction:async()=>{},commit:async()=>{},rollback:async()=>{rolled=true;},release(){},query:async(sql,args)=>{calls.push({sql,args});if(sql.startsWith('SELECT version'))return [[{version:2,fields:JSON.stringify([field])}]];return [{affectedRows:1}];}};
  pool.getConnection=async()=>db;await assert.rejects(saveForm('web','Culture',{version:1,fields:[field]},1),/FORM_CHANGED/);assert.equal(rolled,true);assert.equal(calls.some(c=>c.sql.startsWith('UPDATE')),false);
- const r=await getForm('wechat_mp','Culture',db);assert.equal(r.channel,'wechat_mp');assert.deepEqual(calls.at(-1).args,['wechat_mp','Culture']);
+ const r=await getForm('wechat_mp','Culture',db);assert.equal(r.channel,'wechat_mp');assert.deepEqual(calls.at(-1).args,['web','Culture']);
+ const web=await getForm('web','Culture',db);assert.deepEqual(web.fields,r.fields);assert.equal(web.version,r.version);
+ calls.length=0;const saved=await saveForm('wechat_mp','Culture',{version:2,fields:[field]},1);
+ assert.equal(saved.version,3);assert.equal(calls.find(c=>c.sql.startsWith('UPDATE')).args[3],'web');
 });
 test('advertiser cannot change schemas or read another owner answer',async()=>{
  let status;SuperAdminOnly({admin:{role:'advertiser'}},{status(s){status=s;return this;},json(){}},()=>assert.fail());assert.equal(status,403);
