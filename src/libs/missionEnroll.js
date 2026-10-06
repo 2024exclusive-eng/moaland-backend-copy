@@ -74,6 +74,7 @@ export const GetMissionEnrollCount = async (missionId, conn = pool) => {
 
 export const GetMissionListByUserId = async ({ page, item, type, userId, channel }) => {
   try {
+    const includeForms = formsEnabled();
     const itemsPerPage = Number(item ? item : 30);
     const currentPage = page ? parseInt(page) : 1;
     const offset = (currentPage - 1) * itemsPerPage;
@@ -179,8 +180,10 @@ export const GetMissionListByUserId = async ({ page, item, type, userId, channel
               (SELECT COUNT(*)
                FROM mission_enroll AS me
                WHERE me.mission_id = mission.id) AS enrollCount
+              ${includeForms ? ', form.version AS formVersion, form.snapshot AS formSnapshot, form.answers AS formAnswers' : ''}
        FROM mission_enroll
        INNER JOIN mission ON mission_enroll.mission_id = mission.id
+       ${includeForms ? 'LEFT JOIN enrollment_form_answer form ON form.enroll_id = mission_enroll.id' : ''}
        WHERE mission_enroll.user_id = ?
        AND ${statusCondition}${additionalCondition}
        ORDER BY mission_enroll.created DESC
@@ -189,7 +192,13 @@ export const GetMissionListByUserId = async ({ page, item, type, userId, channel
     );
 
     return {
-      data,
+      data: data.map(({formVersion, formSnapshot, formAnswers, ...row}) => ({...row,
+        enrollmentForm: formVersion == null ? null : {
+          version: formVersion,
+          fields: typeof formSnapshot === 'string' ? JSON.parse(formSnapshot) : formSnapshot,
+          answers: typeof formAnswers === 'string' ? JSON.parse(formAnswers) : formAnswers
+        }
+      })),
       paging: {
         currentPage,
         totalPages,

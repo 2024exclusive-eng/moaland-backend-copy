@@ -4,6 +4,7 @@ import { notifyRelay, checkMpText, mpError } from '../../utils/wechat.js';
 import EC from '../../utils/error.js';
 import * as Mission from '../../libs/mission.js';
 import * as MissionEnroll from '../../libs/missionEnroll.js';
+import {getForm} from '../../libs/enrollmentForms.js';
 
 /**
  * @function GetMissionStatus
@@ -84,8 +85,9 @@ export const GetMissionDetail = async (req, res, next) => {
     const selectUsers = enrollUsersByStatus.selected;
     const completeUsers = enrollUsersByStatus.completed;
     const rejectUsers = enrollUsersByStatus.rejected;
+    const enrollmentForm = mission ? await getForm('web', mission.category) : null;
 
-    return res.status(200).json({ success: true, mission, enrollUsers, selectUsers, completeUsers, rejectUsers });
+    return res.status(200).json({ success: true, mission, enrollUsers, selectUsers, completeUsers, rejectUsers, enrollmentForm });
   } catch (e) {
     return next(e);
   }
